@@ -10,7 +10,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 // Legacy browsers compatibility
 };
 
-// HTML content with escaped template literals
+// HTML content as a plain string
 const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -91,25 +91,25 @@ const htmlContent = `
             const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
             const dateString = new Date(date).toLocaleDateString('en-US', dateOptions);
             
-            card.innerHTML = `
+            card.innerHTML = \`
                 <div class="date-header">
                     <span class="material-icons">calendar_today</span>
-                    ${dateString}
+                    \${dateString}
                 </div>
                 <div class="hourly-list">
-                    ${hours.map(hour => `
+                    \${hours.map(hour => \`
                         <div class="hour-item">
                             <div class="time">
-                                <span class="material-icons">${getTimeIcon(hour.time)}</span>
-                                ${formatTime(hour.time)}
+                                <span class="material-icons">\${getTimeIcon(hour.time)}</span>
+                                \${formatTime(hour.time)}
                             </div>
                             <div class="temperature">
-                                ${hour.temperature}°C
+                                \${hour.temperature}°C
                             </div>
                         </div>
-                    `).join('')}
+                    \`).join('')}
                 </div>
-            `;
+            \`;
             
             return card;
         }
@@ -118,10 +118,10 @@ const htmlContent = `
             document.getElementById('loading').style.display = 'none';
             const errorDiv = document.getElementById('error');
             errorDiv.style.display = 'block';
-            errorDiv.innerHTML = `
+            errorDiv.innerHTML = \`
                 <span class="material-icons">error</span>
-                <div style="margin-top: 0.5rem;">${message}</div>
-            `;
+                <div style="margin-top: 0.5rem;">\${message}</div>
+            \`;
         }
 
         async function getLocation() {
