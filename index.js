@@ -1,12 +1,16 @@
 const express = require('express');
-const cors = require('cors');
+const cors = require('cors'); // Import CORS middleware
 const app = express();
 const fetch = require('node-fetch');
 
-// Enable CORS
-app.use(cors());
+// Enable CORS for specific routes
+const corsOptions = {
+  origin: '*', // Allow all origins (you can restrict this to specific domains)
+  methods: 'GET', // Allow only GET requests
+  optionsSuccessStatus: 200 // Legacy browsers compatibility
+};
 
-// HTML content
+// HTML content (same as before)
 const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -140,13 +144,14 @@ const htmlContent = `
 </html>
 `;
 
-// Routes
+// Serve HTML at root path
 app.get('/', (req, res) => {
     res.set('Content-Type', 'text/html');
     res.send(htmlContent);
 });
 
-app.get('/api/ipgeo', async (req, res) => {
+// IP Geolocation endpoint with CORS
+app.get('/api/ipgeo', cors(corsOptions), async (req, res) => {
     try {
         const response = await fetch('https://ipapi.co/json/');
         const data = await response.json();
@@ -157,13 +162,14 @@ app.get('/api/ipgeo', async (req, res) => {
             region: data.region
         });
     } catch (error) {
-        res.status(500).json({ error: 'IP Geolocation failed' });
+        res.status(500).json({ error: 'IP Geolocation failed', details: error.message });
     }
 });
 
-app.get('/api/weather', async (req, res) => {
+// Weather API endpoint with CORS
+app.get('/api/weather', cors(corsOptions), async (req, res) => {
     const { latitude, longitude } = req.query;
-    
+
     if (!latitude || !longitude) {
         return res.status(400).json({ error: 'Missing coordinates' });
     }
@@ -175,8 +181,19 @@ app.get('/api/weather', async (req, res) => {
         const data = await response.json();
         res.json(data);
     } catch (error) {
-        res.status(500).json({ error: 'Weather API failed' });
+        res.status(500).json({ error: 'Weather API failed', details: error.message });
     }
+});
+
+// Security headers middleware
+app.use((req, res, next) => {
+    res.set({
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'geolocation=(self)'
+    });
+    next();
 });
 
 // Vercel configuration
