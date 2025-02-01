@@ -1,13 +1,12 @@
 {
-    "version": 2,
-    "builds": [{
-        "src": "index.js",
-        "use": "@now/node"
-    }],
-    "routes": [{
-
-        "src": "/(.*)",
-
-        "dest": "index.js"
-    }]
+  "version": 2,
+  "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ],
+  "middleware": ["middleware.js"]
 }
