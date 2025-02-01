@@ -10,7 +10,7 @@ const corsOptions = {
   optionsSuccessStatus: 200 // Legacy browsers compatibility
 };
 
-// HTML content (same as before)
+// HTML content with escaped template literals
 const htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -60,25 +60,74 @@ const htmlContent = `
 
         async function fetchWeatherData(lat, lon) {
             try {
-                const response = await fetch(`${API_BASE}/api/weather?latitude=${lat}&longitude=${lon}`);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const response = await fetch(API_BASE + '/api/weather?latitude=' + lat + '&longitude=' + lon);
+                if (!response.ok) throw new Error('HTTP error! status: ' + response.status);
                 return await response.json();
             } catch (error) {
-                showError(`Failed to load data: ${error.message}`);
+                showError('Failed to load data: ' + error.message);
                 return null;
             }
         }
 
-        // Keep all previous JavaScript functions
-        function formatTime(time24) { /* ... */ }
-        function getTimeIcon(hour) { /* ... */ }
-        function createDayCard(date, hours) { /* ... */ }
-        function showError(message) { /* ... */ }
+        function formatTime(time24) {
+            const [hours, minutes] = time24.split(':');
+            const period = hours >= 12 ? 'PM' : 'AM';
+            const hours12 = hours % 12 || 12;
+            return hours12 + ' ' + period;
+        }
+
+        function getTimeIcon(hour) {
+            const hourNum = parseInt(hour.split(':')[0]);
+            if (hourNum >= 6 && hourNum < 12) return 'wb_sunny';
+            if (hourNum >= 12 && hourNum < 18) return 'brightness_5';
+            if (hourNum >= 18 && hourNum < 22) return 'nights_stay';
+            return 'dark_mode';
+        }
+
+        function createDayCard(date, hours) {
+            const card = document.createElement('div');
+            card.className = 'day-card';
+            
+            const dateOptions = { weekday: 'long', month: 'long', day: 'numeric' };
+            const dateString = new Date(date).toLocaleDateString('en-US', dateOptions);
+            
+            card.innerHTML = `
+                <div class="date-header">
+                    <span class="material-icons">calendar_today</span>
+                    ${dateString}
+                </div>
+                <div class="hourly-list">
+                    ${hours.map(hour => `
+                        <div class="hour-item">
+                            <div class="time">
+                                <span class="material-icons">${getTimeIcon(hour.time)}</span>
+                                ${formatTime(hour.time)}
+                            </div>
+                            <div class="temperature">
+                                ${hour.temperature}°C
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `
+                <span class="material-icons">error</span>
+                <div style="margin-top: 0.5rem;">${message}</div>
+            `;
+        }
 
         async function getLocation() {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
-                    fetch(`${API_BASE}/api/ipgeo`)
+                    fetch(API_BASE + '/api/ipgeo')
                         .then(response => response.json())
                         .then(data => resolve({ latitude: data.latitude, longitude: data.longitude }))
                         .catch(error => reject(new Error('Geolocation not supported and IP lookup failed')));
@@ -90,7 +139,7 @@ const htmlContent = `
                         }),
                         async () => {
                             try {
-                                const ipData = await fetch(`${API_BASE}/api/ipgeo`);
+                                const ipData = await fetch(API_BASE + '/api/ipgeo');
                                 const data = await ipData.json();
                                 resolve({ latitude: data.latitude, longitude: data.longitude });
                             } catch (error) {
@@ -106,7 +155,7 @@ const htmlContent = `
             try {
                 const coords = await getLocation();
                 document.getElementById('location-display').textContent = 
-                    `Latitude: ${coords.latitude.toFixed(2)} | Longitude: ${coords.longitude.toFixed(2)}`;
+                    'Latitude: ' + coords.latitude.toFixed(2) + ' | Longitude: ' + coords.longitude.toFixed(2);
 
                 const data = await fetchWeatherData(coords.latitude, coords.longitude);
                 if (!data) return;
@@ -135,7 +184,7 @@ const htmlContent = `
 
         // Add spin animation
         const style = document.createElement('style');
-        style.textContent = `@keyframes spin { to { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }`;
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } } .spin { animation: spin 1s linear infinite; }';
         document.head.appendChild(style);
 
         window.onload = init;
