@@ -1,13 +1,17 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const fetch = require('node-fetch');
+
+// Use dynamic import for node-fetch
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // Enable CORS for all routes
 app.use(cors());
 
-// HTML content
-const htmlContent = `
+// Serve HTML at root path
+app.get('/', (req, res) => {
+    res.set('Content-Type', 'text/html');
+    res.send(`
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -230,42 +234,9 @@ const htmlContent = `
             \`;
         }
 
-        async function getLocation() {
-            return new Promise((resolve, reject) => {
-                if (!navigator.geolocation) {
-                    fetch(\`\${API_BASE}/api/ipgeo\`)
-                        .then(response => response.json())
-                        .then(data => resolve({ 
-                            latitude: data.latitude, 
-                            longitude: data.longitude 
-                        }))
-                        .catch(error => reject(new Error('Geolocation not supported and IP lookup failed')));
-                } else {
-                    navigator.geolocation.getCurrentPosition(
-                        position => resolve({
-                            latitude: position.coords.latitude,
-                            longitude: position.coords.longitude
-                        }),
-                        async () => {
-                            try {
-                                const ipData = await fetch(\`\${API_BASE}/api/ipgeo\`);
-                                const data = await ipData.json();
-                                resolve({ 
-                                    latitude: data.latitude, 
-                                    longitude: data.longitude 
-                                });
-                            } catch (error) {
-                                reject(new Error('Could not retrieve location'));
-                            }
-                        }
-                    );
-                }
-            });
-        }
-
         async function init() {
             try {
-                const coords = await getLocation();
+                const coords = { latitude: 40.7128, longitude: -74.0060 }; // Default to New York
                 document.getElementById('location-display').textContent = 
                     \`Latitude: \${coords.latitude.toFixed(2)} | Longitude: \${coords.longitude.toFixed(2)}\`;
 
@@ -294,29 +265,11 @@ const htmlContent = `
             }
         }
 
-        // Add spin animation
-        const style = document.createElement('style');
-        style.textContent = \`
-            @keyframes spin {
-                to { transform: rotate(360deg); }
-            }
-            .spin {
-                animation: spin 1s linear infinite;
-            }
-        \`;
-        document.head.appendChild(style);
-
-        // Initialize
         window.onload = init;
     </script>
 </body>
 </html>
-`;
-
-// Serve HTML at root path
-app.get('/', (req, res) => {
-    res.set('Content-Type', 'text/html');
-    res.send(htmlContent);
+    `);
 });
 
 // IP Geolocation endpoint
