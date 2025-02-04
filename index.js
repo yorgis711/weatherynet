@@ -38,9 +38,9 @@ app.get('/api', (req, res) => {
                     wind_direction: data.current.wind_direction_10m,
                 },
                 daily: data.daily.time.map((time, index) => ({
-                    date: new Date(time).toLocaleDateString(),
-                    sunrise: data.daily.sunrise[index].split('T')[1],
-                    sunset: data.daily.sunset[index].split('T')[1],
+                    date: new Date(time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+                    sunrise: data.daily.sunrise[index].split('T')[1].slice(0,5),
+                    sunset: data.daily.sunset[index].split('T')[1].slice(0,5),
                     precipitation: data.daily.precipitation_sum[index],
                     precipitation_chance: data.daily.precipitation_probability_max[index]
                 })),
@@ -145,6 +145,12 @@ app.get('/', (req, res) => {
                 margin-bottom: 1rem;
             }
 
+            .hourly-preview, .daily-preview {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 1rem;
+            }
+
             .modal {
                 display: none;
                 position: fixed;
@@ -156,7 +162,9 @@ app.get('/', (req, res) => {
                 border-radius: 15px;
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);
                 z-index: 1000;
-                max-width: 90%;
+                width: 80%;
+                max-width: 800px;
+                min-width: 300px;
                 max-height: 90vh;
                 overflow-y: auto;
             }
@@ -178,8 +186,9 @@ app.get('/', (req, res) => {
 
             .hourly-forecast {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
                 gap: 1rem;
+                margin: 1rem 0;
             }
 
             .hour-item {
@@ -201,6 +210,7 @@ app.get('/', (req, res) => {
                 padding: 1rem;
                 background: #f8f9fa;
                 border-radius: 10px;
+                gap: 1rem;
             }
 
             .wind-direction {
@@ -208,10 +218,22 @@ app.get('/', (req, res) => {
                 transition: transform 0.3s;
             }
 
-            .loading {
-                text-align: center;
-                padding: 2rem;
-                font-size: 1.2rem;
+            .close-btn {
+                margin-top: 1.5rem;
+                padding: 0.8rem 2rem;
+                background: #2d3436;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                transition: opacity 0.2s;
+            }
+
+            .close-btn:hover {
+                opacity: 0.9;
             }
 
             .material-icons-round {
@@ -319,6 +341,7 @@ app.get('/', (req, res) => {
                     <div class="hour-item">
                         <div>\${hour.time}</div>
                         <div>\${hour.temperature}°C</div>
+                        <div>\${hour.precipitation_chance}%</div>
                     </div>
                 \`).join('');
 
@@ -326,7 +349,8 @@ app.get('/', (req, res) => {
                 const dailyPreview = weatherData.daily.slice(0, 3);
                 document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
                     <div class="day-item">
-                        <div>\${day.date}</div>
+                        <div>\${day.date.split(',')[0]}</div>
+                        <div>\${day.precipitation}mm</div>
                         <div>\${day.precipitation_chance}%</div>
                     </div>
                 \`).join('');
@@ -360,12 +384,21 @@ app.get('/', (req, res) => {
                 const container = document.getElementById('daily-forecast');
                 container.innerHTML = weatherData.daily.map(day => \`
                     <div class="day-item">
-                        <div>\${day.date}</div>
-                        <div>
-                            <span class="material-icons-round">wb_sunny</span>\${day.sunrise}
-                            <span class="material-icons-round">nights_stay</span>\${day.sunset}
+                        <div style="flex: 1">\${day.date}</div>
+                        <div style="flex: 2; display: flex; gap: 1rem; justify-content: center">
+                            <div>
+                                <span class="material-icons-round">wb_sunny</span>
+                                \${day.sunrise}
+                            </div>
+                            <div>
+                                <span class="material-icons-round">nights_stay</span>
+                                \${day.sunset}
+                            </div>
                         </div>
-                        <div>\${day.precipitation_chance}%</div>
+                        <div style="flex: 1; text-align: right">
+                            <div>\${day.precipitation}mm</div>
+                            <div>\${day.precipitation_chance}% chance</div>
+                        </div>
                     </div>
                 \`).join('');
             }
@@ -386,6 +419,7 @@ app.get('/', (req, res) => {
 
             // Initialize
             window.onload = loadWeather;
+            document.querySelector('.modal-overlay').addEventListener('click', closeModal);
         </script>
     </body>
     </html>
