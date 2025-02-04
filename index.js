@@ -13,12 +13,13 @@ app.get('/api', (req, res) => {
         return res.status(400).json({ error: "Missing latitude or longitude parameters" });
     }
 
-    const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${long}
-        &hourly=temperature_2m,precipitation_probability,precipitation,visibility,wind_speed_10m,wind_direction_10m
-        &current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,visibility,wind_speed_10m,wind_direction_10m,is_day
-        &daily=sunrise,sunset,precipitation_sum,precipitation_probability_max,temperature_2m_max,temperature_2m_min
-        &timezone=auto
-        &forecast_days=7`.replace(/\s+/g, '');
+    const apiUrl = 'https://api.open-meteo.com/v1/forecast?' +
+        `latitude=${lat}&longitude=${long}` +
+        '&hourly=temperature_2m,precipitation_probability,precipitation,visibility,wind_speed_10m,wind_direction_10m' +
+        '&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,visibility,wind_speed_10m,wind_direction_10m,is_day' +
+        '&daily=sunrise,sunset,precipitation_sum,precipitation_probability_max,temperature_2m_max,temperature_2m_min' +
+        '&timezone=auto' +
+        '&forecast_days=7';
 
     request(apiUrl, (error, response, body) => {
         if (error) {
@@ -335,11 +336,11 @@ app.get('/', (req, res) => {
             async function loadWeather() {
                 try {
                     const coords = await getLocation();
-                    const response = await fetch(`/api?lat=${coords.latitude}&long=${coords.longitude}`);
+                    const response = await fetch(\`/api?lat=\${coords.latitude}&long=\${coords.longitude}\`);
                     weatherData = await response.json();
                     
                     document.getElementById('location').textContent = 
-                        `Latitude: ${coords.latitude.toFixed(2)}, Longitude: ${coords.longitude.toFixed(2)}`;
+                        \`Latitude: \${coords.latitude.toFixed(2)}, Longitude: \${coords.longitude.toFixed(2)}\`;
 
                     updateCurrentWeather();
                     updatePreviewWidgets();
@@ -353,51 +354,49 @@ app.get('/', (req, res) => {
                 const current = weatherData.current;
                 const container = document.getElementById('current-weather');
                 
-                container.innerHTML = `
+                container.innerHTML = \`
                     <div class="current-item">
-                        <div class="temp">${current.temperature}°C</div>
-                        <div>Feels like ${current.feels_like}°C</div>
+                        <div class="temp">\${current.temperature}°C</div>
+                        <div>Feels like \${current.feels_like}°C</div>
                     </div>
                     <div class="current-item">
-                        <div><span class="material-icons-round">air</span> ${current.wind_speed} km/h</div>
-                        <div class="wind-direction" style="transform: rotate(${current.wind_direction}deg)">⬇️</div>
+                        <div><span class="material-icons-round">air</span> \${current.wind_speed} km/h</div>
+                        <div class="wind-direction" style="transform: rotate(\${current.wind_direction}deg)">⬇️</div>
                     </div>
                     <div class="current-item">
                         <div class="sun-info">
-                            <div><span class="material-icons-round">wb_sunny</span> ${current.sunrise}</div>
-                            <div><span class="material-icons-round">nights_stay</span> ${current.sunset}</div>
+                            <div><span class="material-icons-round">wb_sunny</span> \${current.sunrise}</div>
+                            <div><span class="material-icons-round">nights_stay</span> \${current.sunset}</div>
                         </div>
-                        <div><span class="material-icons-round">water_drop</span> ${current.humidity}%</div>
-                        <div><span class="material-icons-round">visibility</span> ${current.visibility} km</div>
+                        <div><span class="material-icons-round">water_drop</span> \${current.humidity}%</div>
+                        <div><span class="material-icons-round">visibility</span> \${current.visibility} km</div>
                     </div>
-                `;
+                \`;
             }
 
             function updatePreviewWidgets() {
-                // Hourly preview (next 3 hours)
                 const hourlyPreview = weatherData.hourly.slice(0, 3);
-                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => `
+                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => \`
                     <div class="hour-item">
-                        <div>${hour.time}</div>
-                        <div class="temp">${hour.temperature}°C</div>
-                        <div>${hour.precipitation_chance}%</div>
+                        <div>\${hour.time}</div>
+                        <div class="temp">\${hour.temperature}°C</div>
+                        <div>\${hour.precipitation_chance}%</div>
                     </div>
-                `).join('');
+                \`).join('');
 
-                // Daily preview (next 3 days)
                 const dailyPreview = weatherData.daily.slice(0, 3);
-                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => `
+                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
                     <div class="day-item">
-                        <div>${day.date.split(',')[0]}</div>
-                        <div class="temp">${day.temp_max}°/${day.temp_min}°</div>
-                        <div>${day.precipitation_chance}%</div>
+                        <div>\${day.date.split(',')[0]}</div>
+                        <div class="temp">\${day.temp_max}°/\${day.temp_min}°</div>
+                        <div>\${day.precipitation_chance}%</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function showModal(type) {
                 document.querySelector('.modal-overlay').classList.add('active');
-                const modal = document.getElementById(`${type}-modal`);
+                const modal = document.getElementById(\`\${type}-modal\`);
                 modal.classList.add('active');
 
                 if (type === 'hourly') {
@@ -409,34 +408,34 @@ app.get('/', (req, res) => {
 
             function updateHourlyModal() {
                 const container = document.getElementById('hourly-forecast');
-                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => `
+                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => \`
                     <div class="hour-item">
-                        <div>${hour.time}</div>
-                        <div class="temp">${hour.temperature}°C</div>
-                        <div><span class="material-icons-round">umbrella</span> ${hour.precipitation_chance}%</div>
-                        <div><span class="material-icons-round">air</span> ${hour.wind_speed} km/h</div>
+                        <div>\${hour.time}</div>
+                        <div class="temp">\${hour.temperature}°C</div>
+                        <div><span class="material-icons-round">umbrella</span> \${hour.precipitation_chance}%</div>
+                        <div><span class="material-icons-round">air</span> \${hour.wind_speed} km/h</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function updateDailyModal() {
                 const container = document.getElementById('daily-forecast');
-                container.innerHTML = weatherData.daily.map(day => `
+                container.innerHTML = weatherData.daily.map(day => \`
                     <div class="day-item">
-                        <div>${day.date}</div>
-                        <div class="temp">${day.temp_max}°/${day.temp_min}°</div>
+                        <div>\${day.date}</div>
+                        <div class="temp">\${day.temp_max}°/\${day.temp_min}°</div>
                         <div>
                             <span class="material-icons-round">wb_sunny</span>
-                            ${day.sunrise}
+                            \${day.sunrise}
                         </div>
                         <div>
                             <span class="material-icons-round">nights_stay</span>
-                            ${day.sunset}
+                            \${day.sunset}
                         </div>
-                        <div>${day.precipitation}mm</div>
-                        <div>${day.precipitation_chance}%</div>
+                        <div>\${day.precipitation}mm</div>
+                        <div>\${day.precipitation_chance}%</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function closeModal() {
@@ -445,7 +444,6 @@ app.get('/', (req, res) => {
                 });
             }
 
-            // Initialize
             window.onload = loadWeather;
             document.querySelector('.modal-overlay').addEventListener('click', closeModal);
         </script>
