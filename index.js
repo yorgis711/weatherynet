@@ -14,10 +14,11 @@ app.get('/api', (req, res) => {
     }
 
     const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${long}
-        &hourly=temperature_2m,precipitation_probability,precipitation,weathercode
-        &daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max
+        &hourly=temperature_2m,precipitation_probability,precipitation,visibility,wind_speed_10m,wind_direction_10m
+        &current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,visibility,wind_speed_10m,wind_direction_10m,is_day
+        &daily=sunrise,sunset,precipitation_sum,precipitation_probability_max
         &timezone=auto
-        &forecast_days=30`.replace(/\s+/g, '');
+        &forecast_days=7`.replace(/\s+/g, '');
 
     request(apiUrl, (error, response, body) => {
         if (error) {
@@ -32,6 +33,7 @@ app.get('/api', (req, res) => {
                     feels_like: data.current.apparent_temperature,
                     humidity: data.current.relative_humidity_2m,
                     precipitation: data.current.precipitation,
+                    visibility: data.current.visibility,
                     wind_speed: data.current.wind_speed_10m,
                     wind_direction: data.current.wind_direction_10m,
                 },
@@ -39,19 +41,18 @@ app.get('/api', (req, res) => {
                     date: new Date(time).toLocaleDateString(),
                     sunrise: data.daily.sunrise[index].split('T')[1],
                     sunset: data.daily.sunset[index].split('T')[1],
-                    temp_max: data.daily.temperature_2m_max[index],
-                    temp_min: data.daily.temperature_2m_min[index],
                     precipitation: data.daily.precipitation_sum[index],
-                    precipitation_chance: data.daily.precipitation_probability_max[index],
-                    weathercode: data.daily.weathercode[index]
+                    precipitation_chance: data.daily.precipitation_probability_max[index]
                 })),
                 hourly: data.hourly.time.map((time, index) => ({
                     time: new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     temperature: data.hourly.temperature_2m[index],
                     precipitation_chance: data.hourly.precipitation_probability[index],
                     precipitation: data.hourly.precipitation[index],
-                    weathercode: data.hourly.weathercode[index]
-                })).slice(0, 24) // 24 hours
+                    visibility: data.hourly.visibility[index],
+                    wind_speed: data.hourly.wind_speed_10m[index],
+                    wind_direction: data.hourly.wind_direction_10m[index]
+                }))
             };
             
             res.json(formattedData);
@@ -61,89 +62,334 @@ app.get('/api', (req, res) => {
     });
 });
 
-// UI Route (keep the same HTML/CSS as before but update these JavaScript functions)
+// UI Route
+app.get('/', (req, res) => {
+    res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Weather Dashboard</title>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                font-family: 'Segoe UI', sans-serif;
+            }
 
-function updatePreviewWidgets() {
-    // Hourly preview (next 6 hours)
-    const hourlyPreview = weatherData.hourly.slice(0, 6);
-    document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => `
-        <div class="hour-item">
-            <div>${hour.time}</div>
-            <div>${hour.temperature}°C</div>
-            <div class="weather-icon">${getWeatherIcon(hour.weathercode)}</div>
-        </div>
-    `).join('');
+            body {
+                background: #f0f4f8;
+                color: #2d3436;
+                min-height: 100vh;
+                padding: 2rem;
+            }
 
-    // Monthly preview (next 5 days)
-    const monthlyPreview = weatherData.daily.slice(0, 5);
-    document.getElementById('monthly-preview').innerHTML = monthlyPreview.map(day => `
-        <div class="day-item">
-            <div>${day.date}</div>
-            <div>${day.temp_max}/${day.temp_min}°C</div>
-            <div class="weather-icon">${getWeatherIcon(day.weathercode)}</div>
-        </div>
-    `).join('');
-}
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+            }
 
-function updateHourlyModal() {
-    const container = document.getElementById('hourly-forecast');
-    container.innerHTML = weatherData.hourly.map(hour => `
-        <div class="hour-item">
-            <div>${hour.time}</div>
-            <div class="temp">${hour.temperature}°C</div>
-            <div class="weather-icon">${getWeatherIcon(hour.weathercode)}</div>
-            <div><span class="material-icons-round">umbrella</span> ${hour.precipitation_chance}%</div>
-        </div>
-    `).join('');
-}
+            .header {
+                text-align: center;
+                margin-bottom: 2rem;
+            }
 
-function updateDailyModal() {
-    const container = document.getElementById('daily-forecast');
-    container.innerHTML = weatherData.daily.map(day => `
-        <div class="day-item">
-            <div>${day.date}</div>
-            <div>${day.temp_max}/${day.temp_min}°C</div>
-            <div class="weather-icon">${getWeatherIcon(day.weathercode)}</div>
-            <div><span class="material-icons-round">umbrella</span> ${day.precipitation_chance}%</div>
-            <div class="sun-times">
-                <span class="material-icons-round">wb_sunny</span>${day.sunrise}
-                <span class="material-icons-round">nights_stay</span>${day.sunset}
+            .current-weather {
+                background: white;
+                padding: 2rem;
+                border-radius: 20px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                margin-bottom: 2rem;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 1rem;
+            }
+
+            .current-item {
+                text-align: center;
+            }
+
+            .temp {
+                font-size: 2.5rem;
+                font-weight: bold;
+                color: #2d3436;
+            }
+
+            .widgets-container {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1.5rem;
+                margin-bottom: 2rem;
+            }
+
+            .widget {
+                background: white;
+                padding: 1.5rem;
+                border-radius: 15px;
+                cursor: pointer;
+                transition: transform 0.2s;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            }
+
+            .widget:hover {
+                transform: translateY(-3px);
+            }
+
+            .widget-header {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .modal {
+                display: none;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 2rem;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                z-index: 1000;
+                max-width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            .modal-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+
+            .modal.active, .modal-overlay.active {
+                display: block;
+            }
+
+            .hourly-forecast {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                gap: 1rem;
+            }
+
+            .hour-item {
+                padding: 1rem;
+                background: #f8f9fa;
+                border-radius: 10px;
+                text-align: center;
+            }
+
+            .daily-forecast {
+                display: grid;
+                gap: 1rem;
+            }
+
+            .day-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 1rem;
+                background: #f8f9fa;
+                border-radius: 10px;
+            }
+
+            .wind-direction {
+                display: inline-block;
+                transition: transform 0.3s;
+            }
+
+            .loading {
+                text-align: center;
+                padding: 2rem;
+                font-size: 1.2rem;
+            }
+
+            .material-icons-round {
+                vertical-align: middle;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1><span class="material-icons-round">cloud</span> Weather Dashboard</h1>
+                <p id="location" class="location"></p>
+            </div>
+
+            <div class="current-weather" id="current-weather"></div>
+
+            <div class="widgets-container">
+                <div class="widget" onclick="showModal('hourly')">
+                    <div class="widget-header">
+                        <span class="material-icons-round">schedule</span>
+                        <h3>Hourly Forecast</h3>
+                    </div>
+                    <div class="hourly-preview" id="hourly-preview"></div>
+                </div>
+
+                <div class="widget" onclick="showModal('daily')">
+                    <div class="widget-header">
+                        <span class="material-icons-round">calendar_today</span>
+                        <h3>7-Day Forecast</h3>
+                    </div>
+                    <div class="daily-preview" id="daily-preview"></div>
+                </div>
+            </div>
+
+            <div class="modal-overlay" onclick="closeModal()"></div>
+            <div class="modal" id="hourly-modal">
+                <h2>24-Hour Forecast</h2>
+                <div class="hourly-forecast" id="hourly-forecast"></div>
+                <button onclick="closeModal()" class="close-btn">Close</button>
+            </div>
+
+            <div class="modal" id="daily-modal">
+                <h2>7-Day Forecast</h2>
+                <div class="daily-forecast" id="daily-forecast"></div>
+                <button onclick="closeModal()" class="close-btn">Close</button>
             </div>
         </div>
-    `).join('');
-}
 
-// Add weather icons mapping
-function getWeatherIcon(code) {
-    const icons = {
-        0: '☀️',
-        1: '🌤',
-        2: '⛅',
-        3: '☁️',
-        45: '🌫',
-        48: '🌫',
-        51: '🌦',
-        53: '🌦',
-        55: '🌧',
-        56: '🌧',
-        57: '🌧',
-        61: '🌧',
-        63: '🌧',
-        65: '🌧',
-        66: '🌨',
-        67: '🌨',
-        71: '🌨',
-        73: '🌨',
-        75: '🌨',
-        77: '🌨',
-        80: '🌦',
-        81: '🌧',
-        82: '🌧',
-        85: '🌨',
-        86: '🌨',
-        95: '⛈',
-        96: '⛈',
-        99: '⛈'
-    };
-    return icons[code] || '🌤';
-}
+        <script>
+            let weatherData = null;
+
+            async function getLocation() {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        position => resolve(position.coords),
+                        error => reject(error)
+                    );
+                });
+            }
+
+            async function loadWeather() {
+                try {
+                    showLoading();
+                    const coords = await getLocation();
+                    const response = await fetch(\`/api?lat=\${coords.latitude}&long=\${coords.longitude}\`);
+                    weatherData = await response.json();
+                    
+                    document.getElementById('location').textContent = 
+                        \`Latitude: \${coords.latitude.toFixed(2)}, Longitude: \${coords.longitude.toFixed(2)}\`;
+
+                    updateCurrentWeather();
+                    updatePreviewWidgets();
+                    
+                } catch (error) {
+                    alert('Error loading weather data: ' + error.message);
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            function updateCurrentWeather() {
+                const current = weatherData.current;
+                const container = document.getElementById('current-weather');
+                
+                container.innerHTML = \`
+                    <div class="current-item">
+                        <div class="temp">\${current.temperature}°C</div>
+                        <div>Feels like \${current.feels_like}°C</div>
+                    </div>
+                    <div class="current-item">
+                        <div><span class="material-icons-round">air</span> \${current.wind_speed} km/h</div>
+                        <div class="wind-direction" style="transform: rotate(\${current.wind_direction}deg)">⬇️</div>
+                    </div>
+                    <div class="current-item">
+                        <div><span class="material-icons-round">water_drop</span> \${current.humidity}%</div>
+                        <div><span class="material-icons-round">visibility</span> \${current.visibility} km</div>
+                    </div>
+                \`;
+            }
+
+            function updatePreviewWidgets() {
+                // Hourly preview (next 3 hours)
+                const hourlyPreview = weatherData.hourly.slice(0, 3);
+                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => \`
+                    <div class="hour-item">
+                        <div>\${hour.time}</div>
+                        <div>\${hour.temperature}°C</div>
+                    </div>
+                \`).join('');
+
+                // Daily preview (next 3 days)
+                const dailyPreview = weatherData.daily.slice(0, 3);
+                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
+                    <div class="day-item">
+                        <div>\${day.date}</div>
+                        <div>\${day.precipitation_chance}%</div>
+                    </div>
+                \`).join('');
+            }
+
+            function showModal(type) {
+                document.querySelector('.modal-overlay').classList.add('active');
+                const modal = document.getElementById(\`\${type}-modal\`);
+                modal.classList.add('active');
+
+                if (type === 'hourly') {
+                    updateHourlyModal();
+                } else {
+                    updateDailyModal();
+                }
+            }
+
+            function updateHourlyModal() {
+                const container = document.getElementById('hourly-forecast');
+                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => \`
+                    <div class="hour-item">
+                        <div>\${hour.time}</div>
+                        <div class="temp">\${hour.temperature}°C</div>
+                        <div><span class="material-icons-round">umbrella</span> \${hour.precipitation_chance}%</div>
+                        <div><span class="material-icons-round">air</span> \${hour.wind_speed} km/h</div>
+                    </div>
+                \`).join('');
+            }
+
+            function updateDailyModal() {
+                const container = document.getElementById('daily-forecast');
+                container.innerHTML = weatherData.daily.map(day => \`
+                    <div class="day-item">
+                        <div>\${day.date}</div>
+                        <div>
+                            <span class="material-icons-round">wb_sunny</span>\${day.sunrise}
+                            <span class="material-icons-round">nights_stay</span>\${day.sunset}
+                        </div>
+                        <div>\${day.precipitation_chance}%</div>
+                    </div>
+                \`).join('');
+            }
+
+            function closeModal() {
+                document.querySelectorAll('.modal, .modal-overlay').forEach(el => {
+                    el.classList.remove('active');
+                });
+            }
+
+            function showLoading() {
+                // Implement loading state if needed
+            }
+
+            function hideLoading() {
+                // Implement loading state removal
+            }
+
+            // Initialize
+            window.onload = loadWeather;
+        </script>
+    </body>
+    </html>
+    `);
+});
+
+app.listen(8080, () => console.log('Server running on http://localhost:8080'));
