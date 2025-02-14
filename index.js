@@ -4,65 +4,118 @@ const request = require('request');
 
 app.use(express.static('public'));
 
-// API endpoint
-app.get('/api', (req, res) => {
-    const lat = req.query.lat;
-    const long = req.query.long;
-    
-    if (!lat || !long) {
-        return res.status(400).json({ error: "Missing latitude or longitude parameters" });
-    }
+// Weather API endpoint
+app.get('/api/weather', (req, res) => {
+    const startTime = Date.now();
+    let lat = parseFloat(req.query.lat) || 0;
+    let lon = parseFloat(req.query.lon) || 0;
+    const tz = req.query.tz || 'Etc/GMT';
 
-    const apiUrl = 'https://api.open-meteo.com/v1/forecast?' +
-        `latitude=${lat}&longitude=${long}` +
+    // Validate coordinates
+    lat = isNaN(lat) ? 0 : Math.max(-90, Math.min(90, lat));
+    lon = isNaN(lon) ? 0 : Math.max(-180, Math.min(180, lon));
+
+    const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=${encodeURIComponent(tz)}` +
         '&hourly=temperature_2m,precipitation_probability,precipitation,visibility,wind_speed_10m,wind_direction_10m' +
         '&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,rain,visibility,wind_speed_10m,wind_direction_10m,is_day' +
         '&daily=sunrise,sunset,precipitation_sum,precipitation_probability_max,temperature_2m_max,temperature_2m_min' +
-        '&timezone=auto' +
         '&forecast_days=7';
 
     request(apiUrl, (error, response, body) => {
-        if (error) {
-            return res.status(500).json({ error: "Failed to fetch weather data" });
-        }
+        const processingTime = Date.now() - startTime;
         
+        if (error) {
+            return res.status(500).json({ 
+                error: "Failed to fetch weather data",
+                processing_ms: processingTime
+            });
+        }
+
         try {
             const data = JSON.parse(body);
-            const formattedData = {
-                current: {
-                    temperature: data.current.temperature_2m,
-                    feels_like: data.current.apparent_temperature,
-                    humidity: data.current.relative_humidity_2m,
-                    precipitation: data.current.precipitation,
-                    visibility: data.current.visibility,
-                    wind_speed: data.current.wind_speed_10m,
-                    wind_direction: data.current.wind_direction_10m,
-                    sunrise: data.daily.sunrise[0].split('T')[1].slice(0,5),
-                    sunset: data.daily.sunset[0].split('T')[1].slice(0,5)
+            const now = new Date().toLocaleString('en-US', { 
+                timeZone: tz,
+                hour12: false,
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            const formatTime = (isoString, timeZone) => {
+                try {
+                    const date = new Date(isoString);
+                    return date.toLocaleTimeString('en-US', {
+                        timeZone,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                } catch {
+                    return '--:--';
+                }
+            };
+
+            const responseData = {
+                meta: {
+                    processing_ms: processingTime,
+                    current_time: now,
+                    timezone: tz,
+                    coordinates: { lat, lon }
                 },
-                daily: data.daily.time.map((time, index) => ({
-                    date: new Date(time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-                    sunrise: data.daily.sunrise[index].split('T')[1].slice(0,5),
-                    sunset: data.daily.sunset[index].split('T')[1].slice(0,5),
-                    precipitation: data.daily.precipitation_sum[index],
-                    precipitation_chance: data.daily.precipitation_probability_max[index],
-                    temp_max: data.daily.temperature_2m_max[index],
-                    temp_min: data.daily.temperature_2m_min[index]
+                current: {
+                    temperature: `${data.current?.temperature_2m ?? 'N/A'}°C`,
+                    feels_like: `${data.current?.apparent_temperature ?? 'N/A'}°C`,
+                    humidity: `${data.current?.relative_humidity_2m ?? 'N/A'}%`,
+                    precipitation: `${data.current?.precipitation ?? 0} mm`,
+                    visibility: `${((data.current?.visibility ?? 0) / 1000} km`,
+                    wind: {
+                        speed: `${data.current?.wind_speed_10m ?? 'N/A'} km/h`,
+                        direction: data.current?.wind_direction_10m ?? 0
+                    },
+                    sunrise: formatTime(data.daily?.sunrise?.[0], tz),
+                    sunset: formatTime(data.daily?.sunset?.[0], tz)
+                },
+                daily: (data.daily?.time ?? []).map((time, i) => ({
+                    date: new Date(time).toLocaleDateString('en-US', {
+                        timeZone: tz,
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                    }),
+                    temp_max: `${data.daily?.temperature_2m_max?.[i] ?? 'N/A'}°C`,
+                    temp_min: `${data.daily?.temperature_2m_min?.[i] ?? 'N/A'}°C`,
+                    precipitation: `${data.daily?.precipitation_sum?.[i] ?? 0} mm`,
+                    precipitation_chance: `${data.daily?.precipitation_probability_max?.[i] ?? 0}%`,
+                    sunrise: formatTime(data.daily?.sunrise?.[i], tz),
+                    sunset: formatTime(data.daily?.sunset?.[i], tz)
                 })),
-                hourly: data.hourly.time.map((time, index) => ({
-                    time: new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    temperature: data.hourly.temperature_2m[index],
-                    precipitation_chance: data.hourly.precipitation_probability[index],
-                    precipitation: data.hourly.precipitation[index],
-                    visibility: data.hourly.visibility[index],
-                    wind_speed: data.hourly.wind_speed_10m[index],
-                    wind_direction: data.hourly.wind_direction_10m[index]
+                hourly: (data.hourly?.time ?? []).map((time, i) => ({
+                    time: new Date(time).toLocaleTimeString([], {
+                        timeZone: tz,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    }),
+                    temperature: `${data.hourly?.temperature_2m?.[i] ?? 'N/A'}°C`,
+                    precipitation: `${data.hourly?.precipitation?.[i] ?? 0} mm`,
+                    precipitation_chance: `${data.hourly?.precipitation_probability?.[i] ?? 0}%`,
+                    visibility: `${((data.hourly?.visibility?.[i] ?? 0) / 1000} km`,
+                    wind: {
+                        speed: `${data.hourly?.wind_speed_10m?.[i] ?? 'N/A'} km/h`,
+                        direction: data.hourly?.wind_direction_10m?.[i] ?? 0
+                    }
                 }))
             };
-            
-            res.json(formattedData);
+
+            res.json(responseData);
         } catch (e) {
-            res.status(500).json({ error: "Failed to parse weather data" });
+            res.status(500).json({
+                error: "Failed to parse weather data",
+                processing_ms: processingTime
+            });
         }
     });
 });
@@ -100,6 +153,14 @@ app.get('/', (req, res) => {
             .header {
                 text-align: center;
                 margin-bottom: 2rem;
+            }
+
+            .meta-info {
+                text-align: center;
+                margin: 1rem 0;
+                color: #666;
+                font-size: 0.9rem;
+                line-height: 1.4;
             }
 
             .current-weather {
@@ -235,9 +296,9 @@ app.get('/', (req, res) => {
                 min-width: 0;
                 padding: 0.3rem;
                 word-break: break-word;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
             }
 
             .wind-direction {
@@ -266,25 +327,13 @@ app.get('/', (req, res) => {
             .material-icons-round {
                 vertical-align: middle;
             }
-
-            @media (max-width: 600px) {
-                #daily-forecast .day-item {
-                    flex-wrap: wrap;
-                }
-                
-                #daily-forecast .day-item > div {
-                    width: 48%;
-                    margin: 0.2rem 0;
-                    white-space: normal;
-                }
-            }
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header">
                 <h1><span class="material-icons-round">cloud</span> Weather Dashboard</h1>
-                <p id="location" class="location"></p>
+                <div class="meta-info" id="meta"></div>
             </div>
 
             <div class="current-weather" id="current-weather"></div>
@@ -328,19 +377,35 @@ app.get('/', (req, res) => {
                 return new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(
                         position => resolve(position.coords),
-                        error => reject(error)
+                        error => reject(error),
+                        { timeout: 5000 }
                     );
                 });
             }
 
             async function loadWeather() {
                 try {
-                    const coords = await getLocation();
-                    const response = await fetch(\`/api?lat=\${coords.latitude}&long=\${coords.longitude}\`);
+                    let coords = { latitude: 0, longitude: 0 };
+                    let tz = 'Etc/GMT';
+                    
+                    try {
+                        coords = await getLocation();
+                        tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    } catch (error) {
+                        console.log('Using default coordinates and timezone');
+                    }
+
+                    const apiUrl = `/api/weather?lat=${coords.latitude}&lon=${coords.longitude}&tz=${encodeURIComponent(tz)}`;
+                    const response = await fetch(apiUrl);
                     weatherData = await response.json();
                     
-                    document.getElementById('location').textContent = 
-                        \`Latitude: \${coords.latitude.toFixed(2)}, Longitude: \${coords.longitude.toFixed(2)}\`;
+                    // Update meta info
+                    document.getElementById('meta').innerHTML = `
+                        Local Time: ${weatherData.meta.current_time}<br>
+                        Coordinates: ${weatherData.meta.coordinates.lat.toFixed(2)}, 
+                                    ${weatherData.meta.coordinates.lon.toFixed(2)}<br>
+                        Processed in ${weatherData.meta.processing_ms}ms
+                    `;
 
                     updateCurrentWeather();
                     updatePreviewWidgets();
@@ -354,49 +419,49 @@ app.get('/', (req, res) => {
                 const current = weatherData.current;
                 const container = document.getElementById('current-weather');
                 
-                container.innerHTML = \`
+                container.innerHTML = `
                     <div class="current-item">
-                        <div class="temp">\${current.temperature}°C</div>
-                        <div>Feels like \${current.feels_like}°C</div>
+                        <div class="temp">${current.temperature}</div>
+                        <div>Feels like ${current.feels_like}</div>
                     </div>
                     <div class="current-item">
-                        <div><span class="material-icons-round">air</span> \${current.wind_speed} km/h</div>
-                        <div class="wind-direction" style="transform: rotate(\${current.wind_direction}deg)">⬇️</div>
+                        <div><span class="material-icons-round">air</span> ${current.wind.speed}</div>
+                        <div class="wind-direction" style="transform: rotate(${current.wind.direction}deg)">⬇️</div>
                     </div>
                     <div class="current-item">
                         <div class="sun-info">
-                            <div><span class="material-icons-round">wb_sunny</span> \${current.sunrise}</div>
-                            <div><span class="material-icons-round">nights_stay</span> \${current.sunset}</div>
+                            <div><span class="material-icons-round">wb_sunny</span> ${current.sunrise}</div>
+                            <div><span class="material-icons-round">nights_stay</span> ${current.sunset}</div>
                         </div>
-                        <div><span class="material-icons-round">water_drop</span> \${current.humidity}%</div>
-                        <div><span class="material-icons-round">visibility</span> \${current.visibility} km</div>
+                        <div><span class="material-icons-round">water_drop</span> ${current.humidity}</div>
+                        <div><span class="material-icons-round">visibility</span> ${current.visibility}</div>
                     </div>
-                \`;
+                `;
             }
 
             function updatePreviewWidgets() {
                 const hourlyPreview = weatherData.hourly.slice(0, 3);
-                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => \`
+                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => `
                     <div class="hour-item">
-                        <div>\${hour.time}</div>
-                        <div class="temp">\${hour.temperature}°C</div>
-                        <div>\${hour.precipitation_chance}%</div>
+                        <div>${hour.time}</div>
+                        <div class="temp">${hour.temperature}</div>
+                        <div>${hour.precipitation_chance}</div>
                     </div>
-                \`).join('');
+                `).join('');
 
                 const dailyPreview = weatherData.daily.slice(0, 3);
-                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
+                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => `
                     <div class="day-item">
-                        <div>\${day.date.split(',')[0]}</div>
-                        <div class="temp">\${day.temp_max}°/\${day.temp_min}°</div>
-                        <div>\${day.precipitation_chance}%</div>
+                        <div>${day.date.split(',')[0]}</div>
+                        <div class="temp">${day.temp_max}/${day.temp_min}</div>
+                        <div>${day.precipitation_chance}</div>
                     </div>
-                \`).join('');
+                `).join('');
             }
 
             function showModal(type) {
                 document.querySelector('.modal-overlay').classList.add('active');
-                const modal = document.getElementById(\`\${type}-modal\`);
+                const modal = document.getElementById(`${type}-modal`);
                 modal.classList.add('active');
 
                 if (type === 'hourly') {
@@ -408,34 +473,28 @@ app.get('/', (req, res) => {
 
             function updateHourlyModal() {
                 const container = document.getElementById('hourly-forecast');
-                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => \`
+                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => `
                     <div class="hour-item">
-                        <div>\${hour.time}</div>
-                        <div class="temp">\${hour.temperature}°C</div>
-                        <div><span class="material-icons-round">umbrella</span> \${hour.precipitation_chance}%</div>
-                        <div><span class="material-icons-round">air</span> \${hour.wind_speed} km/h</div>
+                        <div>${hour.time}</div>
+                        <div class="temp">${hour.temperature}</div>
+                        <div><span class="material-icons-round">umbrella</span> ${hour.precipitation}</div>
+                        <div><span class="material-icons-round">air</span> ${hour.wind.speed}</div>
                     </div>
-                \`).join('');
+                `).join('');
             }
 
             function updateDailyModal() {
                 const container = document.getElementById('daily-forecast');
-                container.innerHTML = weatherData.daily.map(day => \`
+                container.innerHTML = weatherData.daily.map(day => `
                     <div class="day-item">
-                        <div>\${day.date}</div>
-                        <div class="temp">\${day.temp_max}°/\${day.temp_min}°</div>
-                        <div>
-                            <span class="material-icons-round">wb_sunny</span>
-                            \${day.sunrise}
-                        </div>
-                        <div>
-                            <span class="material-icons-round">nights_stay</span>
-                            \${day.sunset}
-                        </div>
-                        <div>\${day.precipitation}mm</div>
-                        <div>\${day.precipitation_chance}%</div>
+                        <div>${day.date}</div>
+                        <div class="temp">${day.temp_max}/${day.temp_min}</div>
+                        <div><span class="material-icons-round">wb_sunny</span> ${day.sunrise}</div>
+                        <div><span class="material-icons-round">nights_stay</span> ${day.sunset}</div>
+                        <div>${day.precipitation}</div>
+                        <div>${day.precipitation_chance}</div>
                     </div>
-                \`).join('');
+                `).join('');
             }
 
             function closeModal() {
