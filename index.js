@@ -70,7 +70,7 @@ app.get('/api/weather', (req, res) => {
                     feels_like: `${data.current?.apparent_temperature ?? 'N/A'}°C`,
                     humidity: `${data.current?.relative_humidity_2m ?? 'N/A'}%`,
                     precipitation: `${data.current?.precipitation ?? 0} mm`,
-                    visibility: `${((data.current?.visibility ?? 0) / 1000} km`,
+                    visibility: `${((data.current?.visibility ?? 0) / 1000).toFixed(1)} km`,
                     wind: {
                         speed: `${data.current?.wind_speed_10m ?? 'N/A'} km/h`,
                         direction: data.current?.wind_direction_10m ?? 0
@@ -102,7 +102,7 @@ app.get('/api/weather', (req, res) => {
                     temperature: `${data.hourly?.temperature_2m?.[i] ?? 'N/A'}°C`,
                     precipitation: `${data.hourly?.precipitation?.[i] ?? 0} mm`,
                     precipitation_chance: `${data.hourly?.precipitation_probability?.[i] ?? 0}%`,
-                    visibility: `${((data.hourly?.visibility?.[i] ?? 0) / 1000} km`,
+                    visibility: `${((data.hourly?.visibility?.[i] ?? 0) / 1000).toFixed(1)} km`,
                     wind: {
                         speed: `${data.hourly?.wind_speed_10m?.[i] ?? 'N/A'} km/h`,
                         direction: data.hourly?.wind_direction_10m?.[i] ?? 0
