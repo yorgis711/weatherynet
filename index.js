@@ -395,17 +395,16 @@ app.get('/', (req, res) => {
                         console.log('Using default coordinates and timezone');
                     }
 
-                    const apiUrl = `/api/weather?lat=${coords.latitude}&lon=${coords.longitude}&tz=${encodeURIComponent(tz)}`;
+                    const apiUrl = \`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}&tz=\${encodeURIComponent(tz)}\`;
                     const response = await fetch(apiUrl);
                     weatherData = await response.json();
                     
-                    // Update meta info
-                    document.getElementById('meta').innerHTML = `
-                        Local Time: ${weatherData.meta.current_time}<br>
-                        Coordinates: ${weatherData.meta.coordinates.lat.toFixed(2)}, 
-                                    ${weatherData.meta.coordinates.lon.toFixed(2)}<br>
-                        Processed in ${weatherData.meta.processing_ms}ms
-                    `;
+                    document.getElementById('meta').innerHTML = \`
+                        Local Time: \${weatherData.meta.current_time}<br>
+                        Coordinates: \${weatherData.meta.coordinates.lat.toFixed(2)}, 
+                                    \${weatherData.meta.coordinates.lon.toFixed(2)}<br>
+                        Processed in \${weatherData.meta.processing_ms}ms
+                    \`;
 
                     updateCurrentWeather();
                     updatePreviewWidgets();
@@ -419,49 +418,49 @@ app.get('/', (req, res) => {
                 const current = weatherData.current;
                 const container = document.getElementById('current-weather');
                 
-                container.innerHTML = `
+                container.innerHTML = \`
                     <div class="current-item">
-                        <div class="temp">${current.temperature}</div>
-                        <div>Feels like ${current.feels_like}</div>
+                        <div class="temp">\${current.temperature}</div>
+                        <div>Feels like \${current.feels_like}</div>
                     </div>
                     <div class="current-item">
-                        <div><span class="material-icons-round">air</span> ${current.wind.speed}</div>
-                        <div class="wind-direction" style="transform: rotate(${current.wind.direction}deg)">⬇️</div>
+                        <div><span class="material-icons-round">air</span> \${current.wind.speed}</div>
+                        <div class="wind-direction" style="transform: rotate(\${current.wind.direction}deg)">⬇️</div>
                     </div>
                     <div class="current-item">
                         <div class="sun-info">
-                            <div><span class="material-icons-round">wb_sunny</span> ${current.sunrise}</div>
-                            <div><span class="material-icons-round">nights_stay</span> ${current.sunset}</div>
+                            <div><span class="material-icons-round">wb_sunny</span> \${current.sunrise}</div>
+                            <div><span class="material-icons-round">nights_stay</span> \${current.sunset}</div>
                         </div>
-                        <div><span class="material-icons-round">water_drop</span> ${current.humidity}</div>
-                        <div><span class="material-icons-round">visibility</span> ${current.visibility}</div>
+                        <div><span class="material-icons-round">water_drop</span> \${current.humidity}</div>
+                        <div><span class="material-icons-round">visibility</span> \${current.visibility}</div>
                     </div>
-                `;
+                \`;
             }
 
             function updatePreviewWidgets() {
                 const hourlyPreview = weatherData.hourly.slice(0, 3);
-                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => `
+                document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => \`
                     <div class="hour-item">
-                        <div>${hour.time}</div>
-                        <div class="temp">${hour.temperature}</div>
-                        <div>${hour.precipitation_chance}</div>
+                        <div>\${hour.time}</div>
+                        <div class="temp">\${hour.temperature}</div>
+                        <div>\${hour.precipitation_chance}</div>
                     </div>
-                `).join('');
+                \`).join('');
 
                 const dailyPreview = weatherData.daily.slice(0, 3);
-                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => `
+                document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
                     <div class="day-item">
-                        <div>${day.date.split(',')[0]}</div>
-                        <div class="temp">${day.temp_max}/${day.temp_min}</div>
-                        <div>${day.precipitation_chance}</div>
+                        <div>\${day.date.split(',')[0]}</div>
+                        <div class="temp">\${day.temp_max}/\${day.temp_min}</div>
+                        <div>\${day.precipitation_chance}</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function showModal(type) {
                 document.querySelector('.modal-overlay').classList.add('active');
-                const modal = document.getElementById(`${type}-modal`);
+                const modal = document.getElementById(\`\${type}-modal\`);
                 modal.classList.add('active');
 
                 if (type === 'hourly') {
@@ -473,28 +472,28 @@ app.get('/', (req, res) => {
 
             function updateHourlyModal() {
                 const container = document.getElementById('hourly-forecast');
-                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => `
+                container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => \`
                     <div class="hour-item">
-                        <div>${hour.time}</div>
-                        <div class="temp">${hour.temperature}</div>
-                        <div><span class="material-icons-round">umbrella</span> ${hour.precipitation}</div>
-                        <div><span class="material-icons-round">air</span> ${hour.wind.speed}</div>
+                        <div>\${hour.time}</div>
+                        <div class="temp">\${hour.temperature}</div>
+                        <div><span class="material-icons-round">umbrella</span> \${hour.precipitation}</div>
+                        <div><span class="material-icons-round">air</span> \${hour.wind.speed}</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function updateDailyModal() {
                 const container = document.getElementById('daily-forecast');
-                container.innerHTML = weatherData.daily.map(day => `
+                container.innerHTML = weatherData.daily.map(day => \`
                     <div class="day-item">
-                        <div>${day.date}</div>
-                        <div class="temp">${day.temp_max}/${day.temp_min}</div>
-                        <div><span class="material-icons-round">wb_sunny</span> ${day.sunrise}</div>
-                        <div><span class="material-icons-round">nights_stay</span> ${day.sunset}</div>
-                        <div>${day.precipitation}</div>
-                        <div>${day.precipitation_chance}</div>
+                        <div>\${day.date}</div>
+                        <div class="temp">\${day.temp_max}/\${day.temp_min}</div>
+                        <div><span class="material-icons-round">wb_sunny</span> \${day.sunrise}</div>
+                        <div><span class="material-icons-round">nights_stay</span> \${day.sunset}</div>
+                        <div>\${day.precipitation}</div>
+                        <div>\${day.precipitation_chance}</div>
                     </div>
-                `).join('');
+                \`).join('');
             }
 
             function closeModal() {
