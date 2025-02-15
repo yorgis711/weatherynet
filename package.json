@@ -1,18 +1,21 @@
 {
-    "name": "weatherynet",
-    "version": "1.0.0",
-    "description": "A weather forecasting application",
-    "main": "index.js",
-    {
+  "name": "weatherynet",
+  "version": "1.0.0",
+  "description": "A weather forecasting application and API",
+  "main": "index.js",
   "scripts": {
-    "build": "echo 'No build needed' && exit 0",
-    "deploy": "wrangler deploy"
+    "start": "node index.js",
+    "build": "echo 'Build not required'",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-
-    "author": "",
-    "license": "ISC",
-    "dependencies": {
-        "express": "^4.17.1",
-        "axios": "^0.21.1"
-    }
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.8"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0",
+    "esbuild": "^0.20.0"
+  }
 }
