@@ -223,9 +223,33 @@ app.get('/', (req, res) => {
             }
 
             .hourly-preview, .daily-preview {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                display: flex;
                 gap: 1rem;
+                overflow-x: auto;
+                padding-bottom: 0.5rem;
+            }
+
+            .hourly-preview .hour-item,
+            .daily-preview .day-item {
+                flex: 0 0 auto;
+                padding: 0.8rem;
+                background: #f8f9fa;
+                border-radius: 10px;
+                text-align: center;
+                min-width: 100px;
+            }
+
+            .temp-line {
+                display: flex;
+                justify-content: center;
+                gap: 0.5rem;
+                align-items: baseline;
+                margin: 0.3rem 0;
+            }
+
+            .temp-line .temp {
+                font-size: 1.2rem;
+                white-space: nowrap;
             }
 
             .modal {
@@ -291,16 +315,6 @@ app.get('/', (req, res) => {
                 flex-wrap: wrap;
             }
 
-            .day-item > div {
-                flex: 1 1 120px;
-                min-width: 0;
-                padding: 0.3rem;
-                word-break: break-word;
-                white-space: normal;
-                overflow: visible;
-                text-overflow: clip;
-            }
-
             .wind-direction {
                 display: inline-block;
                 transition: transform 0.3s;
@@ -326,6 +340,18 @@ app.get('/', (req, res) => {
 
             .material-icons-round {
                 vertical-align: middle;
+            }
+
+            @media (max-width: 600px) {
+                .hourly-preview, .daily-preview {
+                    gap: 0.8rem;
+                }
+                
+                .hourly-preview .hour-item,
+                .daily-preview .day-item {
+                    min-width: 85px;
+                    padding: 0.6rem;
+                }
             }
         </style>
     </head>
@@ -443,8 +469,10 @@ app.get('/', (req, res) => {
                 document.getElementById('hourly-preview').innerHTML = hourlyPreview.map(hour => \`
                     <div class="hour-item">
                         <div>\${hour.time}</div>
-                        <div class="temp">\${hour.temperature}</div>
-                        <div>\${hour.precipitation_chance}</div>
+                        <div class="temp-line">
+                            <span class="temp">\${hour.temperature}</span>
+                            <span>\${hour.precipitation_chance}</span>
+                        </div>
                     </div>
                 \`).join('');
 
@@ -452,7 +480,11 @@ app.get('/', (req, res) => {
                 document.getElementById('daily-preview').innerHTML = dailyPreview.map(day => \`
                     <div class="day-item">
                         <div>\${day.date.split(',')[0]}</div>
-                        <div class="temp">\${day.temp_max}/\${day.temp_min}</div>
+                        <div class="temp-line">
+                            <span class="temp">\${day.temp_max}</span>
+                            <span>/</span>
+                            <span class="temp">\${day.temp_min}</span>
+                        </div>
                         <div>\${day.precipitation_chance}</div>
                     </div>
                 \`).join('');
@@ -475,8 +507,10 @@ app.get('/', (req, res) => {
                 container.innerHTML = weatherData.hourly.slice(0, 24).map(hour => \`
                     <div class="hour-item">
                         <div>\${hour.time}</div>
-                        <div class="temp">\${hour.temperature}</div>
-                        <div><span class="material-icons-round">umbrella</span> \${hour.precipitation}</div>
+                        <div class="temp-line">
+                            <span class="temp">\${hour.temperature}</span>
+                            <span><span class="material-icons-round">umbrella</span> \${hour.precipitation}</span>
+                        </div>
                         <div><span class="material-icons-round">air</span> \${hour.wind.speed}</div>
                     </div>
                 \`).join('');
@@ -487,7 +521,11 @@ app.get('/', (req, res) => {
                 container.innerHTML = weatherData.daily.map(day => \`
                     <div class="day-item">
                         <div>\${day.date}</div>
-                        <div class="temp">\${day.temp_max}/\${day.temp_min}</div>
+                        <div class="temp-line">
+                            <span class="temp">\${day.temp_max}</span>
+                            <span>/</span>
+                            <span class="temp">\${day.temp_min}</span>
+                        </div>
                         <div><span class="material-icons-round">wb_sunny</span> \${day.sunrise}</div>
                         <div><span class="material-icons-round">nights_stay</span> \${day.sunset}</div>
                         <div>\${day.precipitation}</div>
@@ -510,5 +548,4 @@ app.get('/', (req, res) => {
     `);
 });
 
-app.listen(8080, () => console.log('Server running on http://localhost:8080'));
 module.exports = app;
