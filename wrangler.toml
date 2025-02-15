@@ -1,4 +1,4 @@
-name = "weather-dashboard"
+name = "weatherynet"
 compatibility_date = "2024-05-20"
 main = "src/worker.js"
 kv_namespaces = [
