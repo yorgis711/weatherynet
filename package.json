@@ -1,7 +1,7 @@
 {
   "name": "weatherynet",
   "version": "1.0.0",
-  "description": "A weather forecasting application and API",
+  "description": "A weather forecasting application",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -11,11 +11,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.8"
+    "axios": "^1.9.2"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0",
+    "wrangler": "^3.109.1",
     "esbuild": "^0.20.0"
   }
 }
