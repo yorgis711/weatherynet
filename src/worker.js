@@ -6,47 +6,79 @@ export default {
     // Handle API requests
     if (url.pathname === '/api/weather') {
       try {
+        // Validate and parse parameters
         const params = {
           lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749)),
           lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194)),
-          tz: url.searchParams.get('tz') || 'America/Los_Angeles'
+          tz: url.searchParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
-        const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${params.lat}&longitude=${params.lon}&timezone=${encodeURIComponent(params.tz)}&hourly=temperature_2m,precipitation_probability,weathercode&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weathercode&daily=sunrise,sunset&forecast_days=3`;
+        // Build API URL with required parameters
+        const apiUrl = new URL('https://api.open-meteo.com/v1/forecast');
+        apiUrl.searchParams.set('latitude', params.lat);
+        apiUrl.searchParams.set('longitude', params.lon);
+        apiUrl.searchParams.set('timezone', params.tz);
+        apiUrl.searchParams.set('hourly', 'temperature_2m,precipitation_probability');
+        apiUrl.searchParams.set('current', 'temperature_2m,apparent_temperature,relative_humidity_2m');
+        apiUrl.searchParams.set('daily', 'sunrise,sunset');
+        apiUrl.searchParams.set('forecast_days', 1);
 
         const response = await fetch(apiUrl);
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+        const responseData = await response.json();
         
-        const rawData = await response.json();
-        if (!rawData.latitude || !rawData.longitude) throw new Error('Invalid API response');
+        if (!response.ok || responseData.error) {
+          throw new Error(responseData.reason || `API Error: ${response.status}`);
+        }
 
+        // Validate response structure
+        if (!responseData.latitude || !responseData.longitude) {
+          throw new Error('Invalid API response format');
+        }
+
+        // Process data
         const processedData = {
           meta: {
             colo,
-            coordinates: { lat: rawData.latitude, lon: rawData.longitude },
+            coordinates: { 
+              lat: responseData.latitude,
+              lon: responseData.longitude
+            },
             timezone: params.tz,
             timestamp: new Date().toISOString()
           },
-          current: processCurrentWeather(rawData.current, params.tz),
-          hourly: processHourlyData(rawData.hourly, params.tz),
-          daily: processDailyData(rawData.daily, params.tz)
+          current: {
+            temp: `${responseData.current.temperature_2m}°C`,
+            feelsLike: `${responseData.current.apparent_temperature}°C`,
+            humidity: `${responseData.current.relative_humidity_2m}%`,
+            sunrise: formatTime(responseData.daily.sunrise[0], params.tz),
+            sunset: formatTime(responseData.daily.sunset[0], params.tz)
+          },
+          hourly: responseData.hourly.time.map((time, i) => ({
+            time: formatTime(time, params.tz),
+            temp: `${responseData.hourly.temperature_2m[i]}°C`,
+            precipitation: `${responseData.hourly.precipitation_probability[i]}%`
+          }))
         };
 
         return new Response(JSON.stringify(processedData), {
           headers: { 
             'Content-Type': 'application/json',
-            'Cache-Control': 'no-store'
+            'Access-Control-Allow-Origin': '*'
           }
         });
 
       } catch (error) {
+        console.error('Server Error:', error);
         return new Response(JSON.stringify({
           error: error.message,
           colo,
           timestamp: new Date().toISOString()
         }), { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
         });
       }
     }
@@ -61,64 +93,20 @@ export default {
   }
 };
 
-// Helper functions
-function processCurrentWeather(current, tz) {
-  return {
-    temp: `${current.temperature_2m}°C`,
-    feelsLike: `${current.apparent_temperature}°C`,
-    humidity: `${current.relative_humidity_2m}%`,
-    precipitation: `${current.precipitation}mm`,
-    weatherCode: current.weathercode,
-    sunrise: formatTime(current.sunrise || new Date(), tz),
-    sunset: formatTime(current.sunset || new Date(), tz)
-  };
-}
-
-function processHourlyData(hourly, tz) {
-  return hourly.time.map((time, i) => ({
-    time: formatTime(time, tz),
-    temp: `${hourly.temperature_2m[i]}°C`,
-    precipitation: `${hourly.precipitation_probability[i]}%`,
-    weatherCode: hourly.weathercode[i]
-  }));
-}
-
-function processDailyData(daily, tz) {
-  return daily.time.map((time, i) => ({
-    date: formatDate(time, tz),
-    sunrise: formatTime(daily.sunrise[i], tz),
-    sunset: formatTime(daily.sunset[i], tz),
-    tempMax: `${daily.temperature_2m_max[i]}°C`,
-    tempMin: `${daily.temperature_2m_min[i]}°C`
-  }));
-}
-
-function formatTime(isoString, tz) {
+function formatTime(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleTimeString('en-US', {
-      timeZone: tz,
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('en-US', {
+      timeZone,
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
     });
-  } catch {
+  } catch (error) {
+    console.error('Time formatting error:', error);
     return '--:--';
   }
 }
-
-function formatDate(isoString, tz) {
-  try {
-    return new Date(isoString).toLocaleDateString('en-US', {
-      timeZone: tz,
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  } catch {
-    return '--/--';
-  }
-}
-
 const HTML = (colo) => `<!DOCTYPE html>
 <html lang="en">
 <head>
