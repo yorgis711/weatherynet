@@ -1,20 +1,16 @@
 {
-  "name": "weatherynet",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "express": "^4.18.2",
-    "request": "^2.88.2"
-  },
-  "engines": {
-    "node": ">=14.x"
-  }
+    "name": "weatherynet",
+    "version": "1.0.0",
+    "description": "A weather forecasting application",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "express": "^4.17.1",
+        "axios": "^0.21.1"
+    }
 }
