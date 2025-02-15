@@ -7,3 +7,6 @@ kv_namespaces = [
 
 [build]
 command = "npm install && npm run build"
+
+[observability]
+enabled = true
