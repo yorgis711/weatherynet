@@ -9,7 +9,7 @@ export default {
       });
     }
 
-    if (url.pathname === "/weather") {
+    if (url.pathname === "/api//weather") {
       const location = url.searchParams.get("location") || "New York";
       return fetchWeatherData(location, env, ctx);
     }
@@ -290,7 +290,7 @@ function generateHTML() {
       async function fetchWeather() {
         const startTime = Date.now();
         try {
-          const response = await fetch('/weather?location=New York');
+          const response = await fetch('/api/weather?location=New York');
           const data = await response.json();
 
           if (data.error) throw new Error(data.error);
