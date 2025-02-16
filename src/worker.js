@@ -360,7 +360,7 @@ const HTML = (colo) => `
       try {
         const coords = await getLocation();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}`);
+        const response = await fetch(\`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}\`);
 
         if (!response.ok) throw new Error("HTTP " + response.status);
         weatherData = await response.json();
