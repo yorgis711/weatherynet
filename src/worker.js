@@ -1,4 +1,3 @@
-// src/worker.js
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
@@ -9,8 +8,8 @@ export default {
       try {
         // Validate and parse parameters
         const params = {
-          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749),
-          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194),
+          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749)),
+          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194)),
           tz: url.searchParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
@@ -50,24 +49,24 @@ export default {
             precipitation: `${rawData.current.precipitation ?? 0}mm`,
             windSpeed: `${rawData.current.wind_speed_10m} km/h`,
             windDirection: rawData.current.wind_direction_10m,
-            sunrise: formatTime(rawData.daily.sunrise[0], 
-            sunset: formatTime(rawData.daily.sunset[0])
+            sunrise: formatTime(rawData.daily.sunrise[0], params.tz),
+            sunset: formatTime(rawData.daily.sunset[0], params.tz)
           },
           hourly: rawData.hourly.time.map((time, i) => ({
-            time: formatTime(time),
+            time: formatTime(time, params.tz),
             temp: `${rawData.hourly.temperature_2m[i]}°C`,
             precipitation: `${rawData.hourly.precipitation_probability[i]}%`,
             windSpeed: `${rawData.hourly.wind_speed_10m[i]} km/h`,
             windDirection: rawData.hourly.wind_direction_10m[i]
           })),
           daily: rawData.daily.time.map((date, i) => ({
-            date: formatDate(date),
+            date: formatDate(date, params.tz),
             tempMax: `${rawData.daily.temperature_2m_max[i]}°C`,
             tempMin: `${rawData.daily.temperature_2m_min[i]}°C`,
             precipitation: `${rawData.daily.precipitation_sum[i]}mm`,
             precipitationChance: `${rawData.daily.precipitation_probability_max[i]}%`,
-            sunrise: formatTime(rawData.daily.sunrise[i]),
-            sunset: formatTime(rawData.daily.sunset[i])
+            sunrise: formatTime(rawData.daily.sunrise[i], params.tz),
+            sunset: formatTime(rawData.daily.sunset[i], params.tz)
           }))
         };
 
@@ -113,9 +112,10 @@ function formatTime(isoString, timeZone) {
   }
 }
 
-function formatDate(isoString) {
+function formatDate(isoString, timeZone) {
   try {
     return new Date(isoString).toLocaleDateString('en-US', {
+      timeZone,
       weekday: 'short',
       month: 'short',
       day: 'numeric'
