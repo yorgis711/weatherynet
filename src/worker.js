@@ -131,111 +131,40 @@ const HTML = (colo) => `<!DOCTYPE html>
       --accent: #0984e3;
       --shadow: rgba(0, 0, 0, 0.1);
     }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--background);
-      color: var(--primary);
-      padding: 1rem;
-    }
-    .container {
-      max-width: 1200px;
-      margin: auto;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    .meta-info {
-      font-size: 0.9rem;
-      color: var(--secondary);
-      margin-top: 0.5rem;
-    }
-    .widgets-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    .widget {
-      background: var(--card-bg);
-      padding: 1rem;
-      border-radius: 1.5rem;
-      box-shadow: 0 2px 8px var(--shadow);
-      transition: transform 0.2s;
-    }
-    .widget.clickable:hover {
-      transform: translateY(-3px);
-      cursor: pointer;
-    }
-    .current-widget {
-      background: var(--card-bg);
-      padding: 1rem;
-      border-radius: 1.5rem;
-      box-shadow: 0 2px 8px var(--shadow);
-      margin-bottom: 1rem;
-    }
-    .modal, .modal-overlay {
-      transition: all 0.3s ease;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--background); color: var(--primary); padding: 1rem; }
+    .container { max-width: 1200px; margin: auto; }
+    .header { text-align: center; margin-bottom: 1rem; }
+    .meta-info { font-size: 0.9rem; color: var(--secondary); margin-top: 0.5rem; }
+    .widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .widget { background: var(--card-bg); padding: 1rem; border-radius: 1.5rem; box-shadow: 0 2px 8px var(--shadow); transition: transform 0.2s; }
+    .widget.clickable:hover { transform: translateY(-3px); cursor: pointer; }
+    .current-widget { background: var(--card-bg); padding: 1rem; border-radius: 1.5rem; box-shadow: 0 2px 8px var(--shadow); margin-bottom: 1rem; }
+    .modal, .modal-overlay { transition: all 0.3s ease; }
     .modal {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
+      display: none; position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 3rem;
-      box-shadow: 0 4px 12px var(--shadow);
-      z-index: 1001;
-      max-width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
+      background: var(--card-bg); padding: 1rem 1.5rem 1.5rem 1.5rem;
+      border-radius: 3rem; box-shadow: 0 4px 12px var(--shadow);
+      z-index: 1001; max-width: 90%; max-height: 90vh; overflow: hidden;
       border: 2px solid var(--accent);
     }
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.4);
-      z-index: 1000;
+    .modal .scroll-container {
+      max-height: calc(90vh - 3rem); overflow-y: auto; padding-right: 0.5rem;
     }
-    .modal.active,
-    .modal-overlay.active {
-      display: block;
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; }
+    .modal.active, .modal-overlay.active { display: block; }
+    .small-separator { height: 4px; background: var(--accent); border-radius: 10px; margin: 0.5rem 0; }
+    .squircle-item {
+      background: var(--background); padding: 0.5rem; border: 1px solid var(--accent);
+      border-radius: 1rem; margin-bottom: 0.5rem;
     }
-    .separator {
-      height: 2px;
-      background: var(--accent);
-      border-radius: 2px;
-      margin: 1rem 0;
+    .close-btn {
+      position: absolute; top: 0.5rem; right: 0.5rem; background: transparent;
+      border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary);
     }
-    .small-separator {
-      height: 4px;
-      background: var(--accent);
-      border-radius: 10px;
-      margin: 0.5rem 0;
-    }
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 0.5rem 1rem;
-      border-radius: 1rem;
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    button:hover {
-      background: #077ac0;
-    }
+    button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 1rem; cursor: pointer; transition: background 0.3s ease; }
+    button:hover { background: #077ac0; }
   </style>
 </head>
 <body>
@@ -248,29 +177,27 @@ const HTML = (colo) => `<!DOCTYPE html>
     <div class="widgets-container">
       <div class="widget clickable" onclick="showModal('hourly')">
         <h3>Hourly Forecast</h3>
-        <div class="separator"></div>
         <div class="hourly-preview" id="hourly-preview"></div>
       </div>
       <div class="widget clickable" onclick="showModal('daily')">
         <h3>7-Day Forecast</h3>
-        <div class="separator"></div>
         <div class="daily-preview" id="daily-preview"></div>
       </div>
     </div>
     <div class="modal-overlay" onclick="closeModal()"></div>
     <div class="modal" id="hourly-modal">
+      <button class="close-btn" onclick="closeModal()">×</button>
       <h2>24-Hour Forecast</h2>
-      <div class="separator"></div>
-      <div class="hourly-forecast" id="hourly-forecast"></div>
-      <br>
-      <button onclick="closeModal()">Close</button>
+      <div class="scroll-container">
+        <div class="hourly-forecast" id="hourly-forecast"></div>
+      </div>
     </div>
     <div class="modal" id="daily-modal">
+      <button class="close-btn" onclick="closeModal()">×</button>
       <h2>7-Day Forecast</h2>
-      <div class="separator"></div>
-      <div class="daily-forecast" id="daily-forecast"></div>
-      <br>
-      <button onclick="closeModal()">Close</button>
+      <div class="scroll-container">
+        <div class="daily-forecast" id="daily-forecast"></div>
+      </div>
     </div>
   </div>
   <script>
@@ -302,21 +229,19 @@ const HTML = (colo) => `<!DOCTYPE html>
         '<p>Sunset: ' + weatherData.current.sunset + '</p>';
       document.getElementById("hourly-preview").innerHTML = 
         weatherData.hourly.slice(0, 3).map(function(hour) {
-          return '<div class="hour-item" style="margin-bottom:0.5rem;">' +
+          return '<div class="squircle-item">' +
                     '<div>' + hour.time + '</div>' +
                     '<div>' + hour.temp + '</div>' +
                     '<div>' + hour.precipitation + '</div>' +
-                 '</div>' +
-                 '<div class="small-separator"></div>';
+                 '</div>';
         }).join("");
       document.getElementById("daily-preview").innerHTML = 
         weatherData.daily.slice(0, 3).map(function(day) {
-          return '<div class="day-item" style="margin-bottom:0.5rem;">' +
+          return '<div class="squircle-item">' +
                     '<div>' + day.date + '</div>' +
                     '<div>' + day.tempMax + ' / ' + day.tempMin + '</div>' +
                     '<div>' + day.precipitationChance + '</div>' +
-                 '</div>' +
-                 '<div class="small-separator"></div>';
+                 '</div>';
         }).join("");
       document.getElementById("meta").innerHTML = 
         "Coordinates: " + weatherData.meta.coordinates.lat.toFixed(4) + ", " + weatherData.meta.coordinates.lon.toFixed(4) + " &middot; " +
@@ -329,24 +254,22 @@ const HTML = (colo) => `<!DOCTYPE html>
       if (type === "hourly") {
         document.getElementById("hourly-forecast").innerHTML = 
           weatherData.hourly.map(function(hour) {
-            return '<div class="hour-item" style="margin-bottom:0.5rem;">' +
+            return '<div class="squircle-item">' +
                       '<div>' + hour.time + '</div>' +
                       '<div>' + hour.temp + '</div>' +
                       '<div>' + hour.precipitation + '</div>' +
                       '<div>' + hour.windSpeed + '</div>' +
-                   '</div>' +
-                   '<div class="small-separator"></div>';
+                   '</div>';
           }).join("");
       } else {
         document.getElementById("daily-forecast").innerHTML = 
           weatherData.daily.map(function(day) {
-            return '<div class="day-item" style="margin-bottom:0.5rem;">' +
+            return '<div class="squircle-item">' +
                       '<div>' + day.date + '</div>' +
                       '<div>' + day.tempMax + ' / ' + day.tempMin + '</div>' +
                       '<div>' + day.precipitation + '</div>' +
                       '<div>' + day.precipitationChance + '</div>' +
-                   '</div>' +
-                   '<div class="small-separator"></div>';
+                   '</div>';
           }).join("");
       }
     }
