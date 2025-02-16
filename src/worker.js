@@ -273,7 +273,8 @@ const HTML = (colo) => `<!DOCTYPE html>
 
 
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+;
         
         weatherData = await response.json();
         updateUI();
