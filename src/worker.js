@@ -401,7 +401,8 @@ const HTML = (colo) => `
       dailyPreview.innerHTML = weatherData.daily
         .slice(0, 3)
         .map(day => `
-          <div class="forecast-item">
+          const div = document.createElement('div');
+     div.className = 'forecast-item';
             <div class="condition-value">${day.date}</div>
             <div class="condition-value">${day.tempMax}</div>
             <div class="condition-value">${day.precipitationChance}</div>
