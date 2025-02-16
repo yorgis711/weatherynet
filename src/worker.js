@@ -448,7 +448,8 @@ const HTML = (colo) => `
       const details = document.getElementById('daily-details');
       details.innerHTML = weatherData.daily
         .map(day => `
-          <div class="forecast-item">
+          const div = document.createElement('div');
+     div.className = 'forecast-item';
             <div>${day.date}</div>
             <div>🌡️ ${day.tempMax}</div>
             <div>🌧️ ${day.precipitation}</div>
