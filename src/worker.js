@@ -108,7 +108,7 @@ export default {
       }
     });
   }
-};
+}; // <-- Note the semicolon here!
 
 function formatTime(isoString, timeZone) {
   try {
@@ -388,32 +388,32 @@ const HTML = (colo) => `
       const hourlyPreview = document.getElementById('hourly-preview');
       hourlyPreview.innerHTML = weatherData.hourly
         .slice(0, 3)
-        .map(hour => `
+        .map(hour => \`
           <div class="forecast-item">
-            <div class="condition-value">${hour.time}</div>
-            <div class="condition-value">${hour.temp}</div>
-            <div class="condition-value">${hour.precipitation}</div>
+            <div class="condition-value">\${hour.time}</div>
+            <div class="condition-value">\${hour.temp}</div>
+            <div class="condition-value">\${hour.precipitation}</div>
           </div>
-        `).join('');
+        \`).join('');
 
       // Update daily preview
       const dailyPreview = document.getElementById('daily-preview');
       dailyPreview.innerHTML = weatherData.daily
         .slice(0, 3)
-        .map(day => `
+        .map(day => \`
           <div class="forecast-item">
-            <div class="condition-value">${day.date}</div>
-            <div class="condition-value">${day.tempMax}</div>
-            <div class="condition-value">${day.precipitationChance}</div>
+            <div class="condition-value">\${day.date}</div>
+            <div class="condition-value">\${day.tempMax}</div>
+            <div class="condition-value">\${day.precipitationChance}</div>
           </div>
-        `).join('');
+        \`).join('');
 
       // Update meta information
       const metaInfo = document.querySelector('.meta-info');
-      metaInfo.innerHTML = `
-        <span>🏢 Data Center: ${weatherData.meta.colo}</span>
-        <span>⏳ Processing Time: ${weatherData.meta.processedMs}ms</span>
-      `;
+      metaInfo.innerHTML = \`
+        <span>🏢 Data Center: \${weatherData.meta.colo}</span>
+        <span>⏳ Processing Time: \${weatherData.meta.processedMs}ms</span>
+      \`;
     }
 
     function getLocation() {
@@ -434,27 +434,27 @@ const HTML = (colo) => `
     function showHourlyForecast() {
       const details = document.getElementById('hourly-details');
       details.innerHTML = weatherData.hourly
-        .map(hour => `
+        .map(hour => \`
           <div class="forecast-item">
-            <div>${hour.time}</div>
-            <div>🌡️ ${hour.temp}</div>
-            <div>💧 ${hour.precipitation}</div>
-            <div>🌬️ ${hour.windSpeed}</div>
+            <div>\${hour.time}</div>
+            <div>🌡️ \${hour.temp}</div>
+            <div>💧 \${hour.precipitation}</div>
+            <div>🌬️ \${hour.windSpeed}</div>
           </div>
-        `).join('');
+        \`).join('');
     }
 
     function showDailyForecast() {
       const details = document.getElementById('daily-details');
       details.innerHTML = weatherData.daily
-        .map(day => `
+        .map(day => \`
           <div class="forecast-item">
-            <div>${day.date}</div>
-            <div>🌡️ ${day.tempMax}</div>
-            <div>🌧️ ${day.precipitation}</div>
-            <div>⛅ ${day.precipitationChance}</div>
+            <div>\${day.date}</div>
+            <div>🌡️ \${day.tempMax}</div>
+            <div>🌧️ \${day.precipitation}</div>
+            <div>⛅ \${day.precipitationChance}</div>
           </div>
-        `).join('');
+        \`).join('');
     }
 
     function openModal(type) {
