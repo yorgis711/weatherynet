@@ -190,7 +190,7 @@ const HTML = (colo) => `<!DOCTYPE html>
       transform: translate(-50%, -50%);
       background: var(--card-bg);
       padding: 1.5rem;
-      border-radius: 2rem;
+      border-radius: 3rem;
       box-shadow: 0 4px 12px var(--shadow);
       z-index: 1001;
       max-width: 90%;
@@ -217,6 +217,12 @@ const HTML = (colo) => `<!DOCTYPE html>
       background: var(--accent);
       border-radius: 2px;
       margin: 1rem 0;
+    }
+    .small-separator {
+      height: 4px;
+      background: var(--accent);
+      border-radius: 10px;
+      margin: 0.5rem 0;
     }
     button {
       background: var(--accent);
@@ -300,7 +306,8 @@ const HTML = (colo) => `<!DOCTYPE html>
                     '<div>' + hour.time + '</div>' +
                     '<div>' + hour.temp + '</div>' +
                     '<div>' + hour.precipitation + '</div>' +
-                 '</div>';
+                 '</div>' +
+                 '<div class="small-separator"></div>';
         }).join("");
       document.getElementById("daily-preview").innerHTML = 
         weatherData.daily.slice(0, 3).map(function(day) {
@@ -308,7 +315,8 @@ const HTML = (colo) => `<!DOCTYPE html>
                     '<div>' + day.date + '</div>' +
                     '<div>' + day.tempMax + ' / ' + day.tempMin + '</div>' +
                     '<div>' + day.precipitationChance + '</div>' +
-                 '</div>';
+                 '</div>' +
+                 '<div class="small-separator"></div>';
         }).join("");
       document.getElementById("meta").innerHTML = 
         "Coordinates: " + weatherData.meta.coordinates.lat.toFixed(4) + ", " + weatherData.meta.coordinates.lon.toFixed(4) + " &middot; " +
@@ -326,7 +334,8 @@ const HTML = (colo) => `<!DOCTYPE html>
                       '<div>' + hour.temp + '</div>' +
                       '<div>' + hour.precipitation + '</div>' +
                       '<div>' + hour.windSpeed + '</div>' +
-                   '</div>';
+                   '</div>' +
+                   '<div class="small-separator"></div>';
           }).join("");
       } else {
         document.getElementById("daily-forecast").innerHTML = 
@@ -336,7 +345,8 @@ const HTML = (colo) => `<!DOCTYPE html>
                       '<div>' + day.tempMax + ' / ' + day.tempMin + '</div>' +
                       '<div>' + day.precipitation + '</div>' +
                       '<div>' + day.precipitationChance + '</div>' +
-                   '</div>';
+                   '</div>' +
+                   '<div class="small-separator"></div>';
           }).join("");
       }
     }
