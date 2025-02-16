@@ -360,7 +360,7 @@ const HTML = (colo) => `
       try {
         const coords = await getLocation();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const response = await fetch(\`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}\`);
+        const response = await fetch(\`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}&tz=\${tz}\`);
 
         if (!response.ok) throw new Error("HTTP " + response.status);
         weatherData = await response.json();
@@ -401,8 +401,7 @@ const HTML = (colo) => `
       dailyPreview.innerHTML = weatherData.daily
         .slice(0, 3)
         .map(day => `
-          const div = document.createElement('div');
-     div.className = 'forecast-item';
+          <div class="forecast-item">
             <div class="condition-value">${day.date}</div>
             <div class="condition-value">${day.tempMax}</div>
             <div class="condition-value">${day.precipitationChance}</div>
@@ -429,10 +428,10 @@ const HTML = (colo) => `
 
     function showError(error) {
       console.error('Error:', error);
-      alert(`An error occurred: ${error.message}`);
+      alert(\`An error occurred: \${error.message}\`);
     }
 
-    async function showHourlyForecast() {
+    function showHourlyForecast() {
       const details = document.getElementById('hourly-details');
       details.innerHTML = weatherData.hourly
         .map(hour => `
@@ -445,12 +444,11 @@ const HTML = (colo) => `
         `).join('');
     }
 
-    async function showDailyForecast() {
+    function showDailyForecast() {
       const details = document.getElementById('daily-details');
       details.innerHTML = weatherData.daily
         .map(day => `
-          const div = document.createElement('div');
-     div.className = 'forecast-item';
+          <div class="forecast-item">
             <div>${day.date}</div>
             <div>🌡️ ${day.tempMax}</div>
             <div>🌧️ ${day.precipitation}</div>
@@ -460,12 +458,12 @@ const HTML = (colo) => `
     }
 
     function openModal(type) {
-      document.querySelector('.modal').style.display = 'flex';
       if (type === 'hourly') {
         showHourlyForecast();
       } else {
         showDailyForecast();
       }
+      document.querySelector('.modal').style.display = 'flex';
     }
 
     function closeModal() {
@@ -476,3 +474,4 @@ const HTML = (colo) => `
   </script>
 </body>
 </html>
+`;
