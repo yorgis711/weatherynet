@@ -264,7 +264,8 @@ const HTML = (colo) => `<!DOCTYPE html>
       try {
         const coords = await getLocation();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const response = await fetch(`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}&tz=\${encodeURIComponent(tz)}`);
+        const response = await fetch(`/api/weather?lat=${'$'}{coords.latitude}&lon=${'$'}{coords.longitude}&tz=${'$'}{encodeURIComponent(tz)}`);
+
 
         
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
