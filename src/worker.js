@@ -241,7 +241,7 @@ const HTML = (colo) => `<!DOCTYPE html>
   </div>
 
   <script>
-    let weatherData = null;
+  let weatherData = null;
   async function loadWeather() {
     const startTime = performance.now();
     try {
