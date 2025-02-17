@@ -1,26 +1,26 @@
 function formatTime(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleTimeString('en-US', {
+    return new Date(isoString).toLocaleTimeString("en-US", {
       timeZone: timeZone,
-      hour: '2-digit',
-      minute: '2-digit',
+      hour: "2-digit",
+      minute: "2-digit",
       hour12: false
     });
   } catch (e) {
-    return '--:--';
+    return "--:--";
   }
 }
 
 function formatDate(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleDateString('en-US', {
+    return new Date(isoString).toLocaleDateString("en-US", {
       timeZone: timeZone,
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
+      weekday: "short",
+      month: "short",
+      day: "numeric"
     });
   } catch (e) {
-    return '--/--';
+    return "--/--";
   }
 }
 
@@ -46,7 +46,7 @@ const HTML = (colo) => `<!DOCTYPE html>
       padding: 0;
     }
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: "Inter", sans-serif;
       background: var(--background);
       color: var(--primary);
       padding: 1rem;
@@ -171,7 +171,6 @@ const HTML = (colo) => `<!DOCTYPE html>
         <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
       </div>
     </div>
-
     <div class="current-conditions" id="current-conditions">
       <h2>Current Weather</h2>
       <div class="condition">
@@ -207,7 +206,6 @@ const HTML = (colo) => `<!DOCTYPE html>
         </div>
       </div>
     </div>
-
     <div class="widgets-container">
       <div class="widget">
         <h3>🕒 Hourly Forecast</h3>
@@ -219,7 +217,6 @@ const HTML = (colo) => `<!DOCTYPE html>
       </div>
     </div>
   </div>
-
   <div class="modal" id="hourly-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -229,7 +226,6 @@ const HTML = (colo) => `<!DOCTYPE html>
       <div class="forecast-details" id="hourly-details"></div>
     </div>
   </div>
-
   <div class="modal" id="daily-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -239,7 +235,6 @@ const HTML = (colo) => `<!DOCTYPE html>
       <div class="forecast-details" id="daily-details"></div>
     </div>
   </div>
-
   <script>
   let weatherData = null;
   async function loadWeather() {
@@ -247,114 +242,74 @@ const HTML = (colo) => `<!DOCTYPE html>
     try {
       const coords = await getLocation();
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const response = await fetch('/api/weather?lat=' + coords.latitude + '&lon=' + coords.longitude + '&tz=' + tz);
-
-
+      const response = await fetch(\`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}&tz=\${tz}\`.replace(/\$\{/g, "\\\${"));
       if (!response.ok) throw new Error("HTTP " + response.status);
       weatherData = await response.json();
-      
-      const processingTime = document.getElementById('processing-time');
+      const processingTime = document.getElementById("processing-time");
       processingTime.textContent = weatherData.meta.processedMs;
-      
       updateUI();
     } catch (error) {
       showError(error);
     }
   }
-
-    function updateUI() {
-      document.getElementById('current-temp').textContent = weatherData.current.temp;
-      document.getElementById('current-feels').textContent = weatherData.current.feelsLike;
-      document.getElementById('current-humidity').textContent = weatherData.current.humidity;
-      document.getElementById('current-precipitation').textContent = weatherData.current.precipitation;
-      document.getElementById('current-wind').textContent = weatherData.current.windSpeed;
-      document.getElementById('current-sunrise').textContent = weatherData.current.sunrise;
-      document.getElementById('current-sunset').textContent = weatherData.current.sunset;
-
-      const hourlyPreview = document.getElementById('hourly-preview');
-      hourlyPreview.innerHTML = weatherData.hourly
-        .slice(0, 3)
-        .map(hour =>
-          '<div class="forecast-item">' +
-             '<div class="condition-value">' + hour.time + '</div>' +
-             '<div class="condition-value">' + hour.temp + '</div>' +
-            '<div class="condition-value">' + hour.precipitation + '</div>' +
-          '</div>'
-).join('');
-
-      const dailyPreview = document.getElementById('daily-preview');
-      dailyPreview.innerHTML = weatherData.daily
-        .slice(0, 3)
-        .map(day => `
-          <div class="forecast-item">
-            <div class="condition-value">${day.date}</div>
-            <div class="condition-value">${day.tempMax}</div>
-            <div class="condition-value">${day.precipitationChance}</div>
-          </div>
-        `).join('');
-
-      const metaInfo = document.querySelector('.meta-info');
-      metaInfo.innerHTML = `
-        <span>🏢 Data Center: ${weatherData.meta.colo}</span>
-        <span>⏳ Processing Time: ${weatherData.meta.processedMs}ms</span>
-      `;
+  function updateUI() {
+    document.getElementById("current-temp").textContent = weatherData.current.temp;
+    document.getElementById("current-feels").textContent = weatherData.current.feelsLike;
+    document.getElementById("current-humidity").textContent = weatherData.current.humidity;
+    document.getElementById("current-precipitation").textContent = weatherData.current.precipitation;
+    document.getElementById("current-wind").textContent = weatherData.current.windSpeed;
+    document.getElementById("current-sunrise").textContent = weatherData.current.sunrise;
+    document.getElementById("current-sunset").textContent = weatherData.current.sunset;
+    const hourlyPreview = document.getElementById("hourly-preview");
+    hourlyPreview.innerHTML = weatherData.hourly
+      .slice(0, 3)
+      .map(hour => `\n          <div class="forecast-item">\n            <div class="condition-value">\\\${hour.time}</div>\n            <div class="condition-value">\\\${hour.temp}</div>\n            <div class="condition-value">\\\${hour.precipitation}</div>\n          </div>\n        `)
+      .join("");
+    const dailyPreview = document.getElementById("daily-preview");
+    dailyPreview.innerHTML = weatherData.daily
+      .slice(0, 3)
+      .map(day => `\n          <div class="forecast-item">\n            <div class="condition-value">\\\${day.date}</div>\n            <div class="condition-value">\\\${day.tempMax}</div>\n            <div class="condition-value">\\\${day.precipitationChance}</div>\n          </div>\n        `)
+      .join("");
+    const metaInfo = document.querySelector(".meta-info");
+    metaInfo.innerHTML = `\n        <span>🏢 Data Center: \\\${weatherData.meta.colo}</span>\n        <span>⏳ Processing Time: \\\${weatherData.meta.processedMs}ms</span>\n      `;
+  }
+  function getLocation() {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve(pos.coords),
+        error => resolve({ latitude: 37.7749, longitude: -122.4194 }),
+        { timeout: 5000 }
+      );
+    });
+  }
+  function showError(error) {
+    console.error("Error:", error);
+    alert(`An error occurred: \\${error.message}`);
+  }
+  function showHourlyForecast() {
+    const details = document.getElementById("hourly-details");
+    details.innerHTML = weatherData.hourly
+      .map(hour => `\n          <div class="forecast-item">\n            <div>\\\${hour.time}</div>\n            <div>🌡️ \\\${hour.temp}</div>\n            <div>💧 \\\${hour.precipitation}</div>\n            <div>🌬️ \\\${hour.windSpeed}</div>\n          </div>\n        `)
+      .join("");
+  }
+  function showDailyForecast() {
+    const details = document.getElementById("daily-details");
+    details.innerHTML = weatherData.daily
+      .map(day => `\n          <div class="forecast-item">\n            <div>\\\${day.date}</div>\n            <div>🌡️ \\\${day.tempMax}</div>\n            <div>🌧️ \\\${day.precipitation}</div>\n            <div>⛅ \\\${day.precipitationChance}</div>\n          </div>\n        `)
+      .join("");
+  }
+  function openModal(type) {
+    if (type === "hourly") {
+      showHourlyForecast();
+    } else {
+      showDailyForecast();
     }
-
-    function getLocation() {
-      return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve(pos.coords),
-          error => resolve({ latitude: 37.7749, longitude: -122.4194 }),
-          { timeout: 5000 }
-        );
-      });
-    }
-
-    function showError(error) {
-      console.error('Error:', error);
-      alert(`An error occurred: ${error.message}`);
-    }
-
-    function showHourlyForecast() {
-      const details = document.getElementById('hourly-details');
-      details.innerHTML = weatherData.hourly
-        .map(hour => `
-          <div class="forecast-item">
-            <div>${hour.time}</div>
-            <div>🌡️ ${hour.temp}</div>
-            <div>💧 ${hour.precipitation}</div>
-            <div>🌬️ ${hour.windSpeed}</div>
-          </div>
-        `).join('');
-    }
-
-    function showDailyForecast() {
-      const details = document.getElementById('daily-details');
-      details.innerHTML = weatherData.daily
-        .map(day => `
-          <div class="forecast-item">
-            <div>${day.date}</div>
-            <div>🌡️ ${day.tempMax}</div>
-            <div>🌧️ ${day.precipitation}</div>
-            <div>⛅ ${day.precipitationChance}</div>
-          </div>
-        `).join('');
-    }
-
-    function openModal(type) {
-      if (type === 'hourly') {
-        showHourlyForecast();
-      } else {
-        showDailyForecast();
-      }
-      document.querySelector('.modal').style.display = 'flex';
-    }
-
-    function closeModal() {
-      document.querySelector('.modal').style.display = 'none';
-    }
-
-    loadWeather();
+    document.querySelector(".modal").style.display = "flex";
+  }
+  function closeModal() {
+    document.querySelector(".modal").style.display = "none";
+  }
+  loadWeather();
   </script>
 </body>
 </html>`;
@@ -363,42 +318,34 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
     const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
-
-    if (url.pathname === '/api/weather') {
+    if (url.pathname === "/api/weather") {
       try {
-        const cacheKey = `weather-${url.searchParams.get('lat')}-${url.searchParams.get('lon')}-${url.searchParams.get('tz')}`;
+        const cacheKey = `weather-${url.searchParams.get("lat")}-${url.searchParams.get("lon")}-${url.searchParams.get("tz")}`;
         const cache = await env.WEATHER_CACHE.get(cacheKey);
-        
         if (cache) {
           return new Response(cache, {
-            headers: { 'Content-Type': 'application/json' }
+            headers: { "Content-Type": "application/json" }
           });
         }
-
         const startTime = Date.now();
         const params = {
-          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749)),
-          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194)),
-          tz: url.searchParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone
+          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get("lat")) || 37.7749)),
+          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get("lon")) || -122.4194)),
+          tz: url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
-
-        const apiUrl = new URL('https://api.open-meteo.com/v1/forecast');
-        apiUrl.searchParams.set('latitude', params.lat);
-        apiUrl.searchParams.set('longitude', params.lon);
-        apiUrl.searchParams.set('timezone', params.tz);
-        apiUrl.searchParams.set('hourly', 'temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m');
-        apiUrl.searchParams.set('current', 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m');
-        apiUrl.searchParams.set('daily', 'weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max');
-        apiUrl.searchParams.set('forecast_days', 3);
-
+        const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
+        apiUrl.searchParams.set("latitude", params.lat);
+        apiUrl.searchParams.set("longitude", params.lon);
+        apiUrl.searchParams.set("timezone", params.tz);
+        apiUrl.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m");
+        apiUrl.searchParams.set("current", "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m");
+        apiUrl.searchParams.set("daily", "weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max");
+        apiUrl.searchParams.set("forecast_days", 3);
         const response = await fetch(apiUrl);
         const textResponse = await response.text();
-
         if (!response.ok) throw new Error("HTTP " + response.status);
         const rawData = JSON.parse(textResponse);
-
-        if (!rawData.latitude || !rawData.longitude) throw new Error('Invalid API response');
-
+        if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
         const processedData = {
           meta: {
             colo: colo,
@@ -438,15 +385,13 @@ export default {
             sunset: formatTime(rawData.daily.sunset[i], params.tz)
           }))
         };
-
         await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), {
           expirationTtl: 300
         });
-
         return new Response(JSON.stringify(processedData), {
           headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300'
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300"
           }
         });
       } catch (error) {
@@ -456,16 +401,15 @@ export default {
         }), {
           status: 500,
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json"
           }
         });
       }
     }
-
     return new Response(HTML(colo), {
       headers: {
-        'Content-Type': 'text/html',
-        'Cache-Control': 'no-cache'
+        "Content-Type": "text/html",
+        "Cache-Control": "no-cache"
       }
     });
   }
