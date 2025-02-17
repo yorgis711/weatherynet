@@ -242,24 +242,24 @@ const HTML = (colo) => `<!DOCTYPE html>
 
   <script>
     let weatherData = null;
-    async function loadWeather() {
-      const startTime = performance.now();
-      try {
-        const coords = await getLocation();
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}&tz=${tz}`);
+  async function loadWeather() {
+    const startTime = performance.now();
+    try {
+      const coords = await getLocation();
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}&tz=${tz}`);
 
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        weatherData = await response.json();
-        
-        const processingTime = document.getElementById('processing-time');
-        processingTime.textContent = weatherData.meta.processedMs;
-        
-        updateUI();
-      } catch (error) {
-        showError(error);
-      }
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      weatherData = await response.json();
+      
+      const processingTime = document.getElementById('processing-time');
+      processingTime.textContent = weatherData.meta.processedMs;
+      
+      updateUI();
+    } catch (error) {
+      showError(error);
     }
+  }
 
     function updateUI() {
       document.getElementById('current-temp').textContent = weatherData.current.temp;
