@@ -274,13 +274,13 @@ const HTML = (colo) => `<!DOCTYPE html>
       const hourlyPreview = document.getElementById('hourly-preview');
       hourlyPreview.innerHTML = weatherData.hourly
         .slice(0, 3)
-        .map(hour => 
-  '<div class="forecast-item">' +
-    '<div class="condition-value">' + hour.time + '</div>' +
-    '<div class="condition-value">' + hour.temp + '</div>' +
-    '<div class="condition-value">' + hour.precipitation + '</div>' +
-  '</div>'
-        ).join('');
+        .map(hour =>
+          '<div class="forecast-item">' +
+             '<div class="condition-value">' + hour.time + '</div>' +
+             '<div class="condition-value">' + hour.temp + '</div>' +
+            '<div class="condition-value">' + hour.precipitation + '</div>' +
+          '</div>'
+).join('');
 
       const dailyPreview = document.getElementById('daily-preview');
       dailyPreview.innerHTML = weatherData.daily
