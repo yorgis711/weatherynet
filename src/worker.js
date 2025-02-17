@@ -7,6 +7,7 @@ export default {
       try {
         const cacheKey = `weather-${url.searchParams.get('lat')}-${url.searchParams.get('lon')}-${url.searchParams.get('tz')}`;
         const cache = await env.WEATHER_CACHE.get(cacheKey);
+        
         if (cache) {
           return new Response(cache, {
             headers: { 'Content-Type': 'application/json' }
@@ -30,15 +31,9 @@ export default {
         apiUrl.searchParams.set('forecast_days', 3);
 
         const response = await fetch(apiUrl);
-        if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error("Rate limit reached. Please try again later.");
-          } else {
-            throw new Error("HTTP " + response.status);
-          }
-        }
-
         const textResponse = await response.text();
+
+        if (!response.ok) throw new Error("HTTP " + response.status);
         const rawData = JSON.parse(textResponse);
 
         if (!rawData.latitude || !rawData.longitude) throw new Error('Invalid API response');
@@ -84,7 +79,7 @@ export default {
         };
 
         await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), {
-          expiration: 300
+          expiration: 300 // 5 minutes
         });
 
         return new Response(JSON.stringify(processedData), {
@@ -113,7 +108,7 @@ export default {
       }
     });
   }
-};
+}; // <-- Note the semicolon here!
 
 function formatTime(isoString, timeZone) {
   try {
@@ -289,6 +284,7 @@ const HTML = (colo) => `
         <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
       </div>
     </div>
+
     <div class="current-conditions" id="current-conditions">
       <h2>Current Weather</h2>
       <div class="condition">
@@ -324,6 +320,7 @@ const HTML = (colo) => `
         </div>
       </div>
     </div>
+
     <div class="widgets-container">
       <div class="widget">
         <h3>🕒 Hourly Forecast</h3>
@@ -335,6 +332,7 @@ const HTML = (colo) => `
       </div>
     </div>
   </div>
+
   <div class="modal" id="hourly-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -344,6 +342,7 @@ const HTML = (colo) => `
       <div class="forecast-details" id="hourly-details"></div>
     </div>
   </div>
+
   <div class="modal" id="daily-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -353,6 +352,7 @@ const HTML = (colo) => `
       <div class="forecast-details" id="daily-details"></div>
     </div>
   </div>
+
   <script>
     let weatherData = null;
     async function loadWeather() {
@@ -360,11 +360,14 @@ const HTML = (colo) => `
       try {
         const coords = await getLocation();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const response = await fetch(`/api/weather?lat=${coords.latitude}&lon=${coords.longitude}&tz=${tz}`);
+        const response = await fetch(\`/api/weather?lat=\${coords.latitude}&lon=\${coords.longitude}&tz=\${tz}\`);
+
         if (!response.ok) throw new Error("HTTP " + response.status);
         weatherData = await response.json();
+        
         const processingTime = document.getElementById('processing-time');
         processingTime.textContent = weatherData.meta.processedMs;
+        
         updateUI();
       } catch (error) {
         showError(error);
@@ -372,6 +375,7 @@ const HTML = (colo) => `
     }
 
     function updateUI() {
+      // Update current conditions
       document.getElementById('current-temp').textContent = weatherData.current.temp;
       document.getElementById('current-feels').textContent = weatherData.current.feelsLike;
       document.getElementById('current-humidity').textContent = weatherData.current.humidity;
@@ -379,31 +383,37 @@ const HTML = (colo) => `
       document.getElementById('current-wind').textContent = weatherData.current.windSpeed;
       document.getElementById('current-sunrise').textContent = weatherData.current.sunrise;
       document.getElementById('current-sunset').textContent = weatherData.current.sunset;
+
+      // Update hourly preview
       const hourlyPreview = document.getElementById('hourly-preview');
       hourlyPreview.innerHTML = weatherData.hourly
         .slice(0, 3)
-        .map(hour => `
+        .map(hour => \`
           <div class="forecast-item">
-            <div class="condition-value">${hour.time}</div>
-            <div class="condition-value">${hour.temp}</div>
-            <div class="condition-value">${hour.precipitation}</div>
+            <div class="condition-value">\${hour.time}</div>
+            <div class="condition-value">\${hour.temp}</div>
+            <div class="condition-value">\${hour.precipitation}</div>
           </div>
-        `).join('');
+        \`).join('');
+
+      // Update daily preview
       const dailyPreview = document.getElementById('daily-preview');
       dailyPreview.innerHTML = weatherData.daily
         .slice(0, 3)
-        .map(day => `
+        .map(day => \`
           <div class="forecast-item">
-            <div class="condition-value">${day.date}</div>
-            <div class="condition-value">${day.tempMax}</div>
-            <div class="condition-value">${day.precipitationChance}</div>
+            <div class="condition-value">\${day.date}</div>
+            <div class="condition-value">\${day.tempMax}</div>
+            <div class="condition-value">\${day.precipitationChance}</div>
           </div>
-        `).join('');
+        \`).join('');
+
+      // Update meta information
       const metaInfo = document.querySelector('.meta-info');
-      metaInfo.innerHTML = `
-        <span>🏢 Data Center: ${weatherData.meta.colo}</span>
-        <span>⏳ Processing Time: ${weatherData.meta.processedMs}ms</span>
-      `;
+      metaInfo.innerHTML = \`
+        <span>🏢 Data Center: \${weatherData.meta.colo}</span>
+        <span>⏳ Processing Time: \${weatherData.meta.processedMs}ms</span>
+      \`;
     }
 
     function getLocation() {
@@ -418,33 +428,33 @@ const HTML = (colo) => `
 
     function showError(error) {
       console.error('Error:', error);
-      alert(`An error occurred: ${error.message}`);
+      alert(\`An error occurred: \${error.message}\`);
     }
 
     function showHourlyForecast() {
       const details = document.getElementById('hourly-details');
       details.innerHTML = weatherData.hourly
-        .map(hour => `
+        .map(hour => \`
           <div class="forecast-item">
-            <div>${hour.time}</div>
-            <div>🌡️ ${hour.temp}</div>
-            <div>💧 ${hour.precipitation}</div>
-            <div>🌬️ ${hour.windSpeed}</div>
+            <div>\${hour.time}</div>
+            <div>🌡️ \${hour.temp}</div>
+            <div>💧 \${hour.precipitation}</div>
+            <div>🌬️ \${hour.windSpeed}</div>
           </div>
-        `).join('');
+        \`).join('');
     }
 
     function showDailyForecast() {
       const details = document.getElementById('daily-details');
       details.innerHTML = weatherData.daily
-        .map(day => `
+        .map(day => \`
           <div class="forecast-item">
-            <div>${day.date}</div>
-            <div>🌡️ ${day.tempMax}</div>
-            <div>🌧️ ${day.precipitation}</div>
-            <div>⛅ ${day.precipitationChance}</div>
+            <div>\${day.date}</div>
+            <div>🌡️ \${day.tempMax}</div>
+            <div>🌧️ \${day.precipitation}</div>
+            <div>⛅ \${day.precipitationChance}</div>
           </div>
-        `).join('');
+        \`).join('');
     }
 
     function openModal(type) {
