@@ -365,7 +365,7 @@ export default {
 
     if (url.pathname === '/api/weather') {
       try {
-        const cacheKey = \`weather-\${url.searchParams.get('lat')}-\${url.searchParams.get('lon')}-\${url.searchParams.get('tz')}\`;
+        const cacheKey = `weather-${url.searchParams.get('lat')}-${url.searchParams.get('lon')}-${url.searchParams.get('tz')}`;
         const cache = await env.WEATHER_CACHE.get(cacheKey);
         
         if (cache) {
