@@ -1,115 +1,3 @@
-export default {
-  async fetch(request, env, context) {
-    const url = new URL(request.url);
-    const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
-
-    if (url.pathname === '/api/weather') {
-      try {
-        const cacheKey = `weather-${url.searchParams.get('lat')}-${url.searchParams.get('lon')}-${url.searchParams.get('tz')}`;
-        const cache = await env.WEATHER_CACHE.get(cacheKey);
-        
-        if (cache) {
-          return new Response(cache, {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-
-        const startTime = Date.now();
-        const params = {
-          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749)),
-          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194)),
-          tz: url.searchParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone
-        };
-
-        const apiUrl = new URL('https://api.open-meteo.com/v1/forecast');
-        apiUrl.searchParams.set('latitude', params.lat);
-        apiUrl.searchParams.set('longitude', params.lon);
-        apiUrl.searchParams.set('timezone', params.tz);
-        apiUrl.searchParams.set('hourly', 'temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m');
-        apiUrl.searchParams.set('current', 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m');
-        apiUrl.searchParams.set('daily', 'weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max');
-        apiUrl.searchParams.set('forecast_days', 3);
-
-        const response = await fetch(apiUrl);
-        const textResponse = await response.text();
-
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        const rawData = JSON.parse(textResponse);
-
-        if (!rawData.latitude || !rawData.longitude) throw new Error('Invalid API response');
-
-        const processedData = {
-          meta: {
-            colo: colo,
-            coordinates: {
-              lat: rawData.latitude,
-              lon: rawData.longitude
-            },
-            timezone: params.tz,
-            timestamp: new Date().toISOString(),
-            processedMs: Date.now() - startTime
-          },
-          current: {
-            temp: rawData.current.temperature_2m + "°C",
-            feelsLike: rawData.current.apparent_temperature + "°C",
-            humidity: rawData.current.relative_humidity_2m + "%",
-            precipitation: (rawData.current.precipitation ?? 0) + "mm",
-            windSpeed: rawData.current.wind_speed_10m + " km/h",
-            windDirection: rawData.current.wind_direction_10m,
-            sunrise: formatTime(rawData.daily.sunrise[0], params.tz),
-            sunset: formatTime(rawData.daily.sunset[0], params.tz)
-          },
-          hourly: rawData.hourly.time.map((time, i) => ({
-            time: formatTime(time, params.tz),
-            temp: rawData.hourly.temperature_2m[i] + "°C",
-            precipitation: rawData.hourly.precipitation_probability[i] + "%",
-            precipitationAmount: rawData.hourly.precipitation[i] + "mm",
-            windSpeed: rawData.hourly.wind_speed_10m[i] + " km/h",
-            windDirection: rawData.hourly.wind_direction_10m[i]
-          })),
-          daily: rawData.daily.time.map((date, i) => ({
-            date: formatDate(date, params.tz),
-            tempMax: rawData.daily.temperature_2m_max[i] + "°C",
-            tempMin: rawData.daily.temperature_2m_min[i] + "°C",
-            precipitation: rawData.daily.precipitation_sum[i] + "mm",
-            precipitationChance: rawData.daily.precipitation_probability_max[i] + "%",
-            sunrise: formatTime(rawData.daily.sunrise[i], params.tz),
-            sunset: formatTime(rawData.daily.sunset[i], params.tz)
-          }))
-        };
-
-        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), {
-          expiration: 300 // 5 minutes
-        });
-
-        return new Response(JSON.stringify(processedData), {
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300'
-          }
-        });
-      } catch (error) {
-        return new Response(JSON.stringify({
-          error: error.message,
-          colo: colo
-        }), {
-          status: 500,
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-      }
-    }
-
-    return new Response(HTML(colo), {
-      headers: {
-        'Content-Type': 'text/html',
-        'Cache-Control': 'no-cache'
-      }
-    });
-  }
-}; // <-- Note the semicolon here!
-
 function formatTime(isoString, timeZone) {
   try {
     return new Date(isoString).toLocaleTimeString('en-US', {
@@ -136,8 +24,7 @@ function formatDate(isoString, timeZone) {
   }
 }
 
-const HTML = (colo) => `
-<!DOCTYPE html>
+const HTML = (colo) => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -375,7 +262,6 @@ const HTML = (colo) => `
     }
 
     function updateUI() {
-      // Update current conditions
       document.getElementById('current-temp').textContent = weatherData.current.temp;
       document.getElementById('current-feels').textContent = weatherData.current.feelsLike;
       document.getElementById('current-humidity').textContent = weatherData.current.humidity;
@@ -384,7 +270,6 @@ const HTML = (colo) => `
       document.getElementById('current-sunrise').textContent = weatherData.current.sunrise;
       document.getElementById('current-sunset').textContent = weatherData.current.sunset;
 
-      // Update hourly preview
       const hourlyPreview = document.getElementById('hourly-preview');
       hourlyPreview.innerHTML = weatherData.hourly
         .slice(0, 3)
@@ -396,7 +281,6 @@ const HTML = (colo) => `
           </div>
         \`).join('');
 
-      // Update daily preview
       const dailyPreview = document.getElementById('daily-preview');
       dailyPreview.innerHTML = weatherData.daily
         .slice(0, 3)
@@ -408,7 +292,6 @@ const HTML = (colo) => `
           </div>
         \`).join('');
 
-      // Update meta information
       const metaInfo = document.querySelector('.meta-info');
       metaInfo.innerHTML = \`
         <span>🏢 Data Center: \${weatherData.meta.colo}</span>
@@ -473,5 +356,116 @@ const HTML = (colo) => `
     loadWeather();
   </script>
 </body>
-</html>
-`;
+</html>`;
+
+export default {
+  async fetch(request, env, context) {
+    const url = new URL(request.url);
+    const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
+
+    if (url.pathname === '/api/weather') {
+      try {
+        const cacheKey = \`weather-\${url.searchParams.get('lat')}-\${url.searchParams.get('lon')}-\${url.searchParams.get('tz')}\`;
+        const cache = await env.WEATHER_CACHE.get(cacheKey);
+        
+        if (cache) {
+          return new Response(cache, {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        const startTime = Date.now();
+        const params = {
+          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get('lat')) || 37.7749)),
+          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get('lon')) || -122.4194)),
+          tz: url.searchParams.get('tz') || Intl.DateTimeFormat().resolvedOptions().timeZone
+        };
+
+        const apiUrl = new URL('https://api.open-meteo.com/v1/forecast');
+        apiUrl.searchParams.set('latitude', params.lat);
+        apiUrl.searchParams.set('longitude', params.lon);
+        apiUrl.searchParams.set('timezone', params.tz);
+        apiUrl.searchParams.set('hourly', 'temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m');
+        apiUrl.searchParams.set('current', 'temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m');
+        apiUrl.searchParams.set('daily', 'weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max');
+        apiUrl.searchParams.set('forecast_days', 3);
+
+        const response = await fetch(apiUrl);
+        const textResponse = await response.text();
+
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const rawData = JSON.parse(textResponse);
+
+        if (!rawData.latitude || !rawData.longitude) throw new Error('Invalid API response');
+
+        const processedData = {
+          meta: {
+            colo: colo,
+            coordinates: {
+              lat: rawData.latitude,
+              lon: rawData.longitude
+            },
+            timezone: params.tz,
+            timestamp: new Date().toISOString(),
+            processedMs: Date.now() - startTime
+          },
+          current: {
+            temp: rawData.current.temperature_2m + "°C",
+            feelsLike: rawData.current.apparent_temperature + "°C",
+            humidity: rawData.current.relative_humidity_2m + "%",
+            precipitation: (rawData.current.precipitation ?? 0) + "mm",
+            windSpeed: rawData.current.wind_speed_10m + " km/h",
+            windDirection: rawData.current.wind_direction_10m,
+            sunrise: formatTime(rawData.daily.sunrise[0], params.tz),
+            sunset: formatTime(rawData.daily.sunset[0], params.tz)
+          },
+          hourly: rawData.hourly.time.map((time, i) => ({
+            time: formatTime(time, params.tz),
+            temp: rawData.hourly.temperature_2m[i] + "°C",
+            precipitation: rawData.hourly.precipitation_probability[i] + "%",
+            precipitationAmount: rawData.hourly.precipitation[i] + "mm",
+            windSpeed: rawData.hourly.wind_speed_10m[i] + " km/h",
+            windDirection: rawData.hourly.wind_direction_10m[i]
+          })),
+          daily: rawData.daily.time.map((date, i) => ({
+            date: formatDate(date, params.tz),
+            tempMax: rawData.daily.temperature_2m_max[i] + "°C",
+            tempMin: rawData.daily.temperature_2m_min[i] + "°C",
+            precipitation: rawData.daily.precipitation_sum[i] + "mm",
+            precipitationChance: rawData.daily.precipitation_probability_max[i] + "%",
+            sunrise: formatTime(rawData.daily.sunrise[i], params.tz),
+            sunset: formatTime(rawData.daily.sunset[i], params.tz)
+          }))
+        };
+
+        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), {
+          expiration: 300
+        });
+
+        return new Response(JSON.stringify(processedData), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=300'
+          }
+        });
+      } catch (error) {
+        return new Response(JSON.stringify({
+          error: error.message,
+          colo: colo
+        }), {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+    }
+
+    return new Response(HTML(colo), {
+      headers: {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'no-cache'
+      }
+    });
+  }
+};
