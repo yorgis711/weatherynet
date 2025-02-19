@@ -225,16 +225,21 @@ loadWeather();
 
 export default {
   async fetch(request, env, context) {
+    const startTime = Date.now();
     const url = new URL(request.url);
     const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
+    
     if (url.pathname === "/api/weather") {
       try {
         const cacheKey = "weather-" + url.searchParams.get("lat") + "-" + url.searchParams.get("lon") + "-" + url.searchParams.get("tz");
         const cache = await env.WEATHER_CACHE.get(cacheKey);
         if (cache) {
-          return new Response(cache, { headers: { "Content-Type": "application/json" } });
+          let data = JSON.parse(cache);
+          // Override the colo value with the current request's colo (not cached)
+          data.meta.colo = colo;
+          return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
         }
-        const startTime = Date.now();
+        
         const params = {
           lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get("lat")) || 37.7749)),
           lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get("lon")) || -122.4194)),
@@ -253,6 +258,7 @@ export default {
         if (!response.ok) throw new Error("HTTP " + response.status);
         const rawData = JSON.parse(textResponse);
         if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
+        
         const processedData = {
           meta: {
             colo: colo,
@@ -293,12 +299,24 @@ export default {
             };
           })
         };
-        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), { expirationTtl: 300 });
-        return new Response(JSON.stringify(processedData), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=300" } });
+        
+        // Cache the successful response for 1 hour (3600 seconds)
+        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), { expirationTtl: 3600 });
+        return new Response(JSON.stringify(processedData), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=3600"
+          }
+        });
       } catch (error) {
-        return new Response(JSON.stringify({ error: error.message, colo: colo }), { status: 500, headers: { "Content-Type": "application/json" } });
+        // Return error response with processing time (do not cache error responses)
+        return new Response(JSON.stringify({ error: error.message, colo: colo, processedMs: Date.now() - startTime }), { 
+          status: 500, 
+          headers: { "Content-Type": "application/json" } 
+        });
       }
     }
+    
     return new Response(HTML(colo), { headers: { "Content-Type": "text/html", "Cache-Control": "no-cache" } });
   }
 };
