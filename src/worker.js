@@ -262,6 +262,7 @@ export default {
             throw new Error("HTTP " + response.status);
           }
         }
+        const rawData = JSON.parse(textResponse);
         if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
         
         const processedData = {
