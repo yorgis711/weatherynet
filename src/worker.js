@@ -255,8 +255,13 @@ export default {
         apiUrl.searchParams.set("forecast_days", 3);
         const response = await fetch(apiUrl);
         const textResponse = await response.text();
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        const rawData = JSON.parse(textResponse);
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error("Open-Meteo rate limit reached");
+          } else {
+            throw new Error("HTTP " + response.status);
+          }
+        }
         if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
         
         const processedData = {
