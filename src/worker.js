@@ -56,6 +56,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 <span>🕒 Time: <span id="current-time">-</span></span>
 <span>🌐 Timezone: <span id="current-timezone">-</span></span>
 <span>🏙 City: <span id="current-city">-</span></span>
+<span>🏳 Country: <span id="current-country">-</span></span>
 </div>
 </div>
 <div class="current-conditions" id="current-conditions">
@@ -140,8 +141,10 @@ async function loadWeather() {
     document.getElementById("current-timezone").textContent = tz;
     fetch("/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude).then(res => res.json()).then(data => {
       document.getElementById("current-city").textContent = data.city;
+      document.getElementById("current-country").textContent = data.country;
     }).catch(() => {
       document.getElementById("current-city").textContent = "Unknown";
+      document.getElementById("current-country").textContent = "Unknown";
     });
   } catch (error) {
     showError(error);
@@ -177,7 +180,8 @@ function updateUI() {
                        '<span>⏱ Fetched in: <span id="fetched-time">' + document.getElementById("fetched-time").textContent + '</span>ms</span>' +
                        '<span>🕒 Time: <span id="current-time">' + document.getElementById("current-time").textContent + '</span></span>' +
                        '<span>🌐 Timezone: <span id="current-timezone">' + document.getElementById("current-timezone").textContent + '</span></span>' +
-                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span></span>';
+                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span></span>' +
+                       '<span>🏳 Country: <span id="current-country">' + document.getElementById("current-country").textContent + '</span></span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
@@ -258,13 +262,15 @@ export default {
       }
       const reverseData = await reverseRes.json();
       let city = "Unknown";
+      let country = "Unknown";
       if (reverseData.address) {
         if (reverseData.address.city) city = reverseData.address.city;
         else if (reverseData.address.town) city = reverseData.address.town;
         else if (reverseData.address.village) city = reverseData.address.village;
         else if (reverseData.address.county) city = reverseData.address.county;
+        if (reverseData.address.country) country = reverseData.address.country;
       }
-      return new Response(JSON.stringify({ city: city }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ city: city, country: country }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
     }
     if (url.pathname === "/api/weather") {
       const params = {
