@@ -55,8 +55,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 <span>⏱ Fetched in: <span id="fetched-time">-</span>ms</span>
 <span>🕒 Time: <span id="current-time">-</span></span>
 <span>🌐 Timezone: <span id="current-timezone">-</span></span>
-<span>🏙 City: <span id="current-city">-</span></span>
-<span>🏳 Country: <span id="current-country">-</span></span>
+<span>🏙 City/Country: <span id="current-city">-</span> (<span id="current-country">-</span>)</span>
 </div>
 </div>
 <div class="current-conditions" id="current-conditions">
@@ -180,8 +179,7 @@ function updateUI() {
                        '<span>⏱ Fetched in: <span id="fetched-time">' + document.getElementById("fetched-time").textContent + '</span>ms</span>' +
                        '<span>🕒 Time: <span id="current-time">' + document.getElementById("current-time").textContent + '</span></span>' +
                        '<span>🌐 Timezone: <span id="current-timezone">' + document.getElementById("current-timezone").textContent + '</span></span>' +
-                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span></span>' +
-                       '<span>🏳 Country: <span id="current-country">' + document.getElementById("current-country").textContent + '</span></span>';
+                       '<span>🏙 City/Country: <span id="current-city">' + document.getElementById("current-city").textContent + '</span> (<span id="current-country">' + document.getElementById("current-country").textContent + '</span>)</span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
