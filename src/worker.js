@@ -79,7 +79,11 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 </div>
 <div class="condition-item">
 <div class="condition-value">🌬️ <span id="current-wind">-</span></div>
-<div class="condition-label">Wind</div>
+<div class="condition-label">Wind Speed</div>
+</div>
+<div class="condition-item">
+<div class="condition-value">🧭 <span id="current-wind-dir">-</span></div>
+<div class="condition-label">Wind Direction</div>
 </div>
 </div>
 <div class="condition">
@@ -155,6 +159,7 @@ function updateUI() {
   document.getElementById("current-humidity").textContent = weatherData.current.humidity;
   document.getElementById("current-precipitation").textContent = weatherData.current.precipitation;
   document.getElementById("current-wind").textContent = weatherData.current.windSpeed;
+  document.getElementById("current-wind-dir").textContent = weatherData.current.windDirection;
   document.getElementById("current-sunrise").textContent = weatherData.current.sunrise;
   document.getElementById("current-sunset").textContent = weatherData.current.sunset;
   var hourlyPreview = document.getElementById("hourly-preview");
@@ -163,6 +168,7 @@ function updateUI() {
            '<div class="condition-value">' + hour.time + '</div>' +
            '<div class="condition-value">' + hour.temp + '</div>' +
            '<div class="condition-value">' + hour.precipitation + '</div>' +
+           '<div class="condition-value">🧭 ' + hour.windDirection + '</div>' +
            '</div>';
   }).join("");
   var dailyPreview = document.getElementById("daily-preview");
@@ -202,6 +208,7 @@ function showHourlyForecast() {
            '<div>🌡️ ' + hour.temp + '</div>' +
            '<div>💧 ' + hour.precipitation + '</div>' +
            '<div>🌬️ ' + hour.windSpeed + '</div>' +
+           '<div>🧭 ' + hour.windDirection + '</div>' +
            '</div>';
   }).join("");
 }
@@ -248,6 +255,12 @@ export default {
       if (!lat || !lon) {
         return new Response(JSON.stringify({ error: "lat and lon required", meta: { processedMs: Date.now() - startTime, colo: colo } }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
+      const c2lKey = "c2l-" + lat + "-" + lon;
+      const cachedC2l = await env.WEATHER_CACHE.get(c2lKey);
+      if (cachedC2l) {
+        const data = JSON.parse(cachedC2l);
+        return new Response(JSON.stringify({ ...data, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      }
       const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
       reverseUrl.searchParams.set("format", "json");
       reverseUrl.searchParams.set("lat", lat);
@@ -268,7 +281,9 @@ export default {
         else if (reverseData.address.county) city = reverseData.address.county;
         if (reverseData.address.country) country = reverseData.address.country;
       }
-      return new Response(JSON.stringify({ city: city, country: country, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      const result = { city: city, country: country };
+      await env.WEATHER_CACHE.put(c2lKey, JSON.stringify(result), { expirationTtl: 3600 });
+      return new Response(JSON.stringify({ ...result, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
     }
     if (url.pathname === "/api/weather") {
       const params = {
