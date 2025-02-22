@@ -228,31 +228,32 @@ export default {
     const startTime = Date.now();
     const url = new URL(request.url);
     const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
-    
-    // Common headers to disable browser caching
-    const noCacheHeaders = {
+    const commonHeaders = {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       "Pragma": "no-cache",
-      "Expires": "0",
-      "Content-Type": "application/json"
+      "Expires": "0"
     };
-    
     if (url.pathname === "/api/weather") {
-      try {
-        const cacheKey = "weather-" + url.searchParams.get("lat") + "-" + url.searchParams.get("lon") + "-" + url.searchParams.get("tz");
-        const cache = await env.WEATHER_CACHE.get(cacheKey);
-        if (cache) {
-          let data = JSON.parse(cache);
-          // Override the colo value with the current request's colo (not cached)
-          data.meta.colo = colo;
-          return new Response(JSON.stringify(data), { headers: noCacheHeaders });
-        }
-        
-        const params = {
-          lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get("lat")) || 37.7749)),
-          lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get("lon")) || -122.4194)),
-          tz: url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone
+      const params = {
+        lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get("lat")) || 37.7749)),
+        lon: Math.min(180, Math.max(-180, parseFloat(url.searchParams.get("lon")) || -122.4194)),
+        tz: url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
+      const cacheKey = "weather-" + params.lat + "-" + params.lon + "-" + params.tz;
+      const cached = await env.WEATHER_CACHE.get(cacheKey);
+      if (cached) {
+        const weatherPayload = JSON.parse(cached);
+        const meta = {
+          colo: colo,
+          coordinates: { lat: params.lat, lon: params.lon },
+          timezone: params.tz,
+          timestamp: new Date().toISOString(),
+          processedMs: Date.now() - startTime
         };
+        const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
+        return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      }
+      try {
         const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
         apiUrl.searchParams.set("latitude", params.lat);
         apiUrl.searchParams.set("longitude", params.lon);
@@ -260,7 +261,7 @@ export default {
         apiUrl.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m");
         apiUrl.searchParams.set("current", "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m");
         apiUrl.searchParams.set("daily", "weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max");
-        apiUrl.searchParams.set("forecast_days", 3);
+        apiUrl.searchParams.set("forecast_days", 7);
         const response = await fetch(apiUrl);
         const textResponse = await response.text();
         if (!response.ok) {
@@ -272,15 +273,7 @@ export default {
         }
         const rawData = JSON.parse(textResponse);
         if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
-        
-        const processedData = {
-          meta: {
-            colo: colo,
-            coordinates: { lat: rawData.latitude, lon: rawData.longitude },
-            timezone: params.tz,
-            timestamp: new Date().toISOString(),
-            processedMs: Date.now() - startTime
-          },
+        const weatherPayload = {
           current: {
             temp: rawData.current.temperature_2m + "°C",
             feelsLike: rawData.current.apparent_temperature + "°C",
@@ -291,7 +284,7 @@ export default {
             sunrise: formatTime(rawData.daily.sunrise[0], params.tz),
             sunset: formatTime(rawData.daily.sunset[0], params.tz)
           },
-          hourly: rawData.hourly.time.map(function(time, i) {
+          hourly: rawData.hourly.time.slice(0, 24).map(function(time, i) {
             return {
               time: formatTime(time, params.tz),
               temp: rawData.hourly.temperature_2m[i] + "°C",
@@ -301,7 +294,7 @@ export default {
               windDirection: rawData.hourly.wind_direction_10m[i]
             };
           }),
-          daily: rawData.daily.time.map(function(date, i) {
+          daily: rawData.daily.time.slice(0, 7).map(function(date, i) {
             return {
               date: formatDate(date, params.tz),
               tempMax: rawData.daily.temperature_2m_max[i] + "°C",
@@ -313,27 +306,20 @@ export default {
             };
           })
         };
-        
-        // Cache the successful response for 1 hour (3600 seconds) in Workers KV only
-        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), { expirationTtl: 3600 });
-        return new Response(JSON.stringify(processedData), { headers: noCacheHeaders });
+        const meta = {
+          colo: colo,
+          coordinates: { lat: params.lat, lon: params.lon },
+          timezone: params.tz,
+          timestamp: new Date().toISOString(),
+          processedMs: Date.now() - startTime
+        };
+        const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
+        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(weatherPayload), { expirationTtl: 3600 });
+        return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
       } catch (error) {
-        // Return error response with processing time (do not cache error responses)
-        return new Response(JSON.stringify({ error: error.message, colo: colo, processedMs: Date.now() - startTime }), { 
-          status: 500, 
-          headers: noCacheHeaders 
-        });
+        return new Response(JSON.stringify({ error: error.message, meta: { colo: colo, processedMs: Date.now() - startTime } }), { status: 500, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
     }
-    
-    // For HTML responses, disable browser caching as well
-    return new Response(HTML(colo), { 
-      headers: { 
-        "Content-Type": "text/html",
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      } 
-    });
+    return new Response(HTML(colo), { headers: { ...commonHeaders, "Content-Type": "text/html" } });
   }
 };
