@@ -52,6 +52,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 <div class="meta-info">
 <span>🏢 Data Center: ${colo}</span>
 <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
+<span>⏱ Fetched in: <span id="fetched-time">-</span>ms</span>
 <span>🕒 Time: <span id="current-time">-</span></span>
 <span>🌐 Timezone: <span id="current-timezone">-</span></span>
 <span>🏙 City: <span id="current-city">-</span></span>
@@ -124,13 +125,15 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 <script>
 let weatherData = null;
 async function loadWeather() {
-  const startTime = performance.now();
+  const clientStartTime = performance.now();
   try {
     const coords = await getLocation();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const response = await fetch("/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz);
     if (!response.ok) throw new Error("HTTP " + response.status);
     weatherData = await response.json();
+    const fetchTime = Math.round(performance.now() - clientStartTime);
+    document.getElementById("fetched-time").textContent = fetchTime;
     document.getElementById("processing-time").textContent = weatherData.meta.processedMs;
     updateUI();
     document.getElementById("current-time").textContent = new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
@@ -171,9 +174,10 @@ function updateUI() {
   var metaInfo = document.querySelector(".meta-info");
   metaInfo.innerHTML = '<span>🏢 Data Center: ' + weatherData.meta.colo + '</span>' +
                        '<span>⏳ Processing Time: ' + weatherData.meta.processedMs + 'ms</span>' +
-                       '<span>🕒 Time: <span id="current-time">-</span></span>' +
-                       '<span>🌐 Timezone: <span id="current-timezone">-</span></span>' +
-                       '<span>🏙 City: <span id="current-city">-</span></span>';
+                       '<span>⏱ Fetched in: <span id="fetched-time">' + document.getElementById("fetched-time").textContent + '</span>ms</span>' +
+                       '<span>🕒 Time: <span id="current-time">' + document.getElementById("current-time").textContent + '</span></span>' +
+                       '<span>🌐 Timezone: <span id="current-timezone">' + document.getElementById("current-timezone").textContent + '</span></span>' +
+                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span></span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
