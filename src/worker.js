@@ -229,6 +229,14 @@ export default {
     const url = new URL(request.url);
     const colo = request.cf && request.cf.colo ? request.cf.colo : "unknown";
     
+    // Common headers to disable browser caching
+    const noCacheHeaders = {
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "Content-Type": "application/json"
+    };
+    
     if (url.pathname === "/api/weather") {
       try {
         const cacheKey = "weather-" + url.searchParams.get("lat") + "-" + url.searchParams.get("lon") + "-" + url.searchParams.get("tz");
@@ -237,12 +245,7 @@ export default {
           let data = JSON.parse(cache);
           // Override the colo value with the current request's colo (not cached)
           data.meta.colo = colo;
-          return new Response(JSON.stringify(data), { 
-            headers: { 
-              "Content-Type": "application/json", 
-              "Cache-Control": "no-store" 
-            } 
-          });
+          return new Response(JSON.stringify(data), { headers: noCacheHeaders });
         }
         
         const params = {
@@ -313,28 +316,23 @@ export default {
         
         // Cache the successful response for 1 hour (3600 seconds) in Workers KV only
         await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), { expirationTtl: 3600 });
-        return new Response(JSON.stringify(processedData), {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store"
-          }
-        });
+        return new Response(JSON.stringify(processedData), { headers: noCacheHeaders });
       } catch (error) {
         // Return error response with processing time (do not cache error responses)
         return new Response(JSON.stringify({ error: error.message, colo: colo, processedMs: Date.now() - startTime }), { 
           status: 500, 
-          headers: { 
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store" 
-          } 
+          headers: noCacheHeaders 
         });
       }
     }
     
+    // For HTML responses, disable browser caching as well
     return new Response(HTML(colo), { 
       headers: { 
-        "Content-Type": "text/html", 
-        "Cache-Control": "no-store" 
+        "Content-Type": "text/html",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
       } 
     });
   }
