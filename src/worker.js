@@ -237,7 +237,12 @@ export default {
           let data = JSON.parse(cache);
           // Override the colo value with the current request's colo (not cached)
           data.meta.colo = colo;
-          return new Response(JSON.stringify(data), { headers: { "Content-Type": "application/json" } });
+          return new Response(JSON.stringify(data), { 
+            headers: { 
+              "Content-Type": "application/json", 
+              "Cache-Control": "no-store" 
+            } 
+          });
         }
         
         const params = {
@@ -306,23 +311,31 @@ export default {
           })
         };
         
-        // Cache the successful response for 1 hour (3600 seconds)
+        // Cache the successful response for 1 hour (3600 seconds) in Workers KV only
         await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(processedData), { expirationTtl: 3600 });
         return new Response(JSON.stringify(processedData), {
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=3600"
+            "Cache-Control": "no-store"
           }
         });
       } catch (error) {
         // Return error response with processing time (do not cache error responses)
         return new Response(JSON.stringify({ error: error.message, colo: colo, processedMs: Date.now() - startTime }), { 
           status: 500, 
-          headers: { "Content-Type": "application/json" } 
+          headers: { 
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store" 
+          } 
         });
       }
     }
     
-    return new Response(HTML(colo), { headers: { "Content-Type": "text/html", "Cache-Control": "no-cache" } });
+    return new Response(HTML(colo), { 
+      headers: { 
+        "Content-Type": "text/html", 
+        "Cache-Control": "no-store" 
+      } 
+    });
   }
 };
