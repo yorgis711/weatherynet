@@ -1,11 +1,6 @@
 function formatTime(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleTimeString("en-US", {
-      timeZone: timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
+    return new Date(isoString).toLocaleTimeString("en-US", { timeZone: timeZone, hour: "2-digit", minute: "2-digit", hour12: false });
   } catch (e) {
     return "--:--";
   }
@@ -13,12 +8,7 @@ function formatTime(isoString, timeZone) {
 
 function formatDate(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", {
-      timeZone: timeZone,
-      weekday: "short",
-      month: "short",
-      day: "numeric"
-    });
+    return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
   } catch (e) {
     return "--/--";
   }
@@ -38,7 +28,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .container { max-width: 1200px; margin: 0 auto; }
 .header { text-align: center; margin-bottom: 2rem; }
 .header h1 { margin-bottom: 0.5rem; }
-.meta-info { font-size: 0.9rem; color: var(--secondary); display: flex; gap: 1rem; align-items: center; }
+.meta-info { font-size: 0.9rem; color: var(--secondary); display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 .widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
 .widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
 .widget:hover { transform: translateY(-3px); }
@@ -62,6 +52,9 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 <div class="meta-info">
 <span>🏢 Data Center: ${colo}</span>
 <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
+<span>🕒 Time: <span id="current-time">-</span></span>
+<span>🌐 Timezone: <span id="current-timezone">-</span></span>
+<span>🏙 City: <span id="current-city">-</span></span>
 </div>
 </div>
 <div class="current-conditions" id="current-conditions">
@@ -140,6 +133,13 @@ async function loadWeather() {
     weatherData = await response.json();
     document.getElementById("processing-time").textContent = weatherData.meta.processedMs;
     updateUI();
+    document.getElementById("current-time").textContent = new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
+    document.getElementById("current-timezone").textContent = tz;
+    fetch("/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude).then(res => res.json()).then(data => {
+      document.getElementById("current-city").textContent = data.city;
+    }).catch(() => {
+      document.getElementById("current-city").textContent = "Unknown";
+    });
   } catch (error) {
     showError(error);
   }
@@ -170,7 +170,10 @@ function updateUI() {
   }).join("");
   var metaInfo = document.querySelector(".meta-info");
   metaInfo.innerHTML = '<span>🏢 Data Center: ' + weatherData.meta.colo + '</span>' +
-                       '<span>⏳ Processing Time: ' + weatherData.meta.processedMs + 'ms</span>';
+                       '<span>⏳ Processing Time: ' + weatherData.meta.processedMs + 'ms</span>' +
+                       '<span>🕒 Time: <span id="current-time">-</span></span>' +
+                       '<span>🌐 Timezone: <span id="current-timezone">-</span></span>' +
+                       '<span>🏙 City: <span id="current-city">-</span></span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
@@ -233,6 +236,32 @@ export default {
       "Pragma": "no-cache",
       "Expires": "0"
     };
+    if (url.pathname === "/api/c2l") {
+      const lat = url.searchParams.get("lat");
+      const lon = url.searchParams.get("lon");
+      if (!lat || !lon) {
+        return new Response(JSON.stringify({ error: "lat and lon required" }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      }
+      const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
+      reverseUrl.searchParams.set("format", "json");
+      reverseUrl.searchParams.set("lat", lat);
+      reverseUrl.searchParams.set("lon", lon);
+      reverseUrl.searchParams.set("zoom", "10");
+      reverseUrl.searchParams.set("addressdetails", "1");
+      const reverseRes = await fetch(reverseUrl.toString(), { headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" } });
+      if (!reverseRes.ok) {
+        return new Response(JSON.stringify({ error: "Reverse geocoding failed" }), { status: reverseRes.status, headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      }
+      const reverseData = await reverseRes.json();
+      let city = "Unknown";
+      if (reverseData.address) {
+        if (reverseData.address.city) city = reverseData.address.city;
+        else if (reverseData.address.town) city = reverseData.address.town;
+        else if (reverseData.address.village) city = reverseData.address.village;
+        else if (reverseData.address.county) city = reverseData.address.county;
+      }
+      return new Response(JSON.stringify({ city: city }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+    }
     if (url.pathname === "/api/weather") {
       const params = {
         lat: Math.min(90, Math.max(-90, parseFloat(url.searchParams.get("lat")) || 37.7749)),
