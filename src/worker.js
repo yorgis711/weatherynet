@@ -246,7 +246,7 @@ export default {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
       if (!lat || !lon) {
-        return new Response(JSON.stringify({ error: "lat and lon required" }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "lat and lon required", meta: { processedMs: Date.now() - startTime, colo: colo } }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
       const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
       reverseUrl.searchParams.set("format", "json");
@@ -256,7 +256,7 @@ export default {
       reverseUrl.searchParams.set("addressdetails", "1");
       const reverseRes = await fetch(reverseUrl.toString(), { headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" } });
       if (!reverseRes.ok) {
-        return new Response(JSON.stringify({ error: "Reverse geocoding failed" }), { status: reverseRes.status, headers: { ...commonHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Reverse geocoding failed", meta: { processedMs: Date.now() - startTime, colo: colo } }), { status: reverseRes.status, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
       const reverseData = await reverseRes.json();
       let city = "Unknown";
@@ -268,7 +268,7 @@ export default {
         else if (reverseData.address.county) city = reverseData.address.county;
         if (reverseData.address.country) country = reverseData.address.country;
       }
-      return new Response(JSON.stringify({ city: city, country: country }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ city: city, country: country, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
     }
     if (url.pathname === "/api/weather") {
       const params = {
