@@ -24,24 +24,31 @@ const HTML = (colo) => `<!DOCTYPE html>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: "Inter", sans-serif; background: var(--background); color: var(--primary); padding: 1rem; }
 .container { max-width: 1200px; margin: 0 auto; }
-.header { text-align: center; margin-bottom: 2rem; }
+.header { text-align: center; margin-bottom: 1rem; }
 .header h1 { margin-bottom: 0.5rem; }
-.meta-info { font-size: 0.9rem; color: var(--secondary); display: flex; gap: 1rem; align-items: center; flex-wrap: nowrap; }
+.refresh-btn { margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; }
+.meta-info { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--secondary); justify-content: center; margin-bottom: 1.5rem; }
 .meta-info span { white-space: nowrap; }
-.widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
-.widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
-.widget:hover { transform: translateY(-3px); }
+.meta-info .location { display: flex; gap: 0.5rem; }
+@media (max-width: 767px) {
+  .meta-info .location { display: block; }
+}
 .current-conditions { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 12px var(--shadow); }
 .condition { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
 .condition-item { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; text-align: center; }
 .condition-value { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
 .condition-label { color: var(--secondary); font-size: 0.9rem; }
+.widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
+.widget:hover { transform: translateY(-3px); }
 .forecast-preview { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; cursor: pointer; }
 .forecast-item { flex: 0 0 150px; background: var(--card-bg); padding: 1rem; border-radius: 1rem; box-shadow: 0 2px 4px var(--shadow); }
 .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); display: none; justify-content: center; align-items: center; }
-.modal-content { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: auto; position: relative; }
-.close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); }
-.refresh-btn { margin-top: 1rem; padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; }
+.modal-content { background: var(--card-bg); border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: hidden; position: relative; }
+.modal-header { display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 2rem 0 2rem; }
+.modal-header h2 { margin: 0; }
+.close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
+.modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
 </style>
 </head>
 <body>
@@ -49,14 +56,17 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
   <div class="header">
     <h1>🌤️ Weather Dashboard</h1>
     <button class="refresh-btn" onclick="refreshWeather()">Refresh</button>
-    <div class="meta-info">
-      <span>🏢 Data Center: ${colo}</span>
-      <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
-      <span>⏱ Fetched in: <span id="fetched-time">-</span>ms</span>
-      <span>🕒 Time: <span id="current-time">-</span></span>
-      <span>🌐 Timezone: <span id="current-timezone">-</span></span>
-      <span>🏙 City: <span id="current-city">-</span>, Country: <span id="current-country">-</span></span>
-    </div>
+  </div>
+  <div class="meta-info">
+    <span id="data-center">🏢 Data Center: ${colo}</span>
+    <span id="processing-time-meta">⏳ Processing Time: - ms</span>
+    <span id="fetched-time-meta">⏱ Fetched in: - ms</span>
+    <span id="current-time-meta">🕒 Time: -</span>
+    <span id="current-timezone-meta">🌐 Timezone: -</span>
+    <span class="location">
+      <span>🏙 City: <span id="current-city">-</span></span>
+      <span>Country: <span id="current-country">-</span></span>
+    </span>
   </div>
   <div class="current-conditions" id="current-conditions">
     <h2>Current Weather</h2>
@@ -110,16 +120,20 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 </div>
 <div class="modal" id="hourly-modal">
   <div class="modal-content">
-    <button class="close-btn" onclick="closeModal('hourly')">×</button>
-    <h2>🕒 24-Hour Forecast</h2>
-    <div class="forecast-details" id="hourly-details"></div>
+    <div class="modal-header">
+      <h2>🕒 24-Hour Forecast</h2>
+      <button class="close-btn" onclick="closeModal('hourly')">×</button>
+    </div>
+    <div class="modal-body" id="hourly-details"></div>
   </div>
 </div>
 <div class="modal" id="daily-modal">
   <div class="modal-content">
-    <button class="close-btn" onclick="closeModal('daily')">×</button>
-    <h2>📆 7-Day Forecast</h2>
-    <div class="forecast-details" id="daily-details"></div>
+    <div class="modal-header">
+      <h2>📆 7-Day Forecast</h2>
+      <button class="close-btn" onclick="closeModal('daily')">×</button>
+    </div>
+    <div class="modal-body" id="daily-details"></div>
   </div>
 </div>
 <script>
@@ -134,11 +148,11 @@ async function loadWeather(noCache) {
     if (!response.ok) throw new Error("HTTP " + response.status);
     weatherData = await response.json();
     const fetchTime = Math.round(performance.now() - clientStartTime);
-    document.getElementById("fetched-time").textContent = fetchTime;
-    document.getElementById("processing-time").textContent = weatherData.meta.processedMs;
+    document.getElementById("fetched-time-meta").textContent = "⏱ Fetched in: " + fetchTime + "ms";
+    document.getElementById("processing-time-meta").textContent = "⏳ Processing Time: " + weatherData.meta.processedMs + "ms";
+    document.getElementById("current-time-meta").textContent = "🕒 Time: " + new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
+    document.getElementById("current-timezone-meta").textContent = "🌐 Timezone: " + tz;
     updateUI();
-    document.getElementById("current-time").textContent = new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
-    document.getElementById("current-timezone").textContent = tz;
     const c2lUrl = "/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude + (noCache ? "&noCache=true" : "");
     const res = await fetch(c2lUrl);
     const data = await res.json();
@@ -178,13 +192,6 @@ function updateUI() {
            '<div>🌧️ ' + day.precipitationChance + '</div>' +
            '</div>';
   }).join("");
-  var metaInfo = document.querySelector(".meta-info");
-  metaInfo.innerHTML = '<span>🏢 Data Center: ' + weatherData.meta.colo + '</span>' +
-                       '<span>⏳ Processing Time: ' + weatherData.meta.processedMs + 'ms</span>' +
-                       '<span>⏱ Fetched in: <span id="fetched-time">' + document.getElementById("fetched-time").textContent + '</span>ms</span>' +
-                       '<span>🕒 Time: <span id="current-time">' + document.getElementById("current-time").textContent + '</span></span>' +
-                       '<span>🌐 Timezone: <span id="current-timezone">' + document.getElementById("current-timezone").textContent + '</span></span>' +
-                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span>, Country: <span id="current-country">' + document.getElementById("current-country").textContent + '</span></span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
@@ -237,6 +244,13 @@ function closeModal(type) {
     document.getElementById("daily-modal").style.display = "none";
   }
 }
+document.querySelectorAll('.modal').forEach(function(modal) {
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      modal.style.display = 'none';
+    }
+  });
+});
 loadWeather();
 </script>
 </body>
