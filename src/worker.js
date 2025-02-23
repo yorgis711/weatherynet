@@ -5,7 +5,6 @@ function formatTime(isoString, timeZone) {
     return "--:--";
   }
 }
-
 function formatDate(isoString, timeZone) {
   try {
     return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
@@ -13,7 +12,6 @@ function formatDate(isoString, timeZone) {
     return "--/--";
   }
 }
-
 const HTML = (colo) => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -28,7 +26,8 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .container { max-width: 1200px; margin: 0 auto; }
 .header { text-align: center; margin-bottom: 2rem; }
 .header h1 { margin-bottom: 0.5rem; }
-.meta-info { font-size: 0.9rem; color: var(--secondary); display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.meta-info { font-size: 0.9rem; color: var(--secondary); display: flex; gap: 1rem; align-items: center; flex-wrap: nowrap; }
+.meta-info span { white-space: nowrap; }
 .widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
 .widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
 .widget:hover { transform: translateY(-3px); }
@@ -37,103 +36,101 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .condition-item { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; text-align: center; }
 .condition-value { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
 .condition-label { color: var(--secondary); font-size: 0.9rem; }
-.forecast-preview { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; }
+.forecast-preview { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; cursor: pointer; }
 .forecast-item { flex: 0 0 150px; background: var(--card-bg); padding: 1rem; border-radius: 1rem; box-shadow: 0 2px 4px var(--shadow); }
 .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); display: none; justify-content: center; align-items: center; }
-.modal-content { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: auto; }
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.modal-content { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: auto; position: relative; }
 .close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); }
+.refresh-btn { margin-top: 1rem; padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; }
 </style>
 </head>
 <body>
 <div class="container">
-<div class="header">
-<h1>🌤️ Weather Dashboard</h1>
-<div class="meta-info">
-<span>🏢 Data Center: ${colo}</span>
-<span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
-<span>⏱ Fetched in: <span id="fetched-time">-</span>ms</span>
-<span>🕒 Time: <span id="current-time">-</span></span>
-<span>🌐 Timezone: <span id="current-timezone">-</span></span>
-<span>🏙 City/Country: <span id="current-city">-</span> (<span id="current-country">-</span>)</span>
-</div>
-</div>
-<div class="current-conditions" id="current-conditions">
-<h2>Current Weather</h2>
-<div class="condition">
-<div class="condition-item">
-<div class="condition-value">🌡️ <span id="current-temp">-</span></div>
-<div class="condition-label">Temperature</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">👋 <span id="current-feels">-</span></div>
-<div class="condition-label">Feels Like</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">💧 <span id="current-humidity">-</span></div>
-<div class="condition-label">Humidity</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">🌧️ <span id="current-precipitation">-</span></div>
-<div class="condition-label">Precipitation</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">🌬️ <span id="current-wind">-</span></div>
-<div class="condition-label">Wind Speed</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">🧭 <span id="current-wind-dir">-</span></div>
-<div class="condition-label">Wind Direction</div>
-</div>
-</div>
-<div class="condition">
-<div class="condition-item">
-<div class="condition-value">🌅 <span id="current-sunrise">-</span></div>
-<div class="condition-label">Sunrise</div>
-</div>
-<div class="condition-item">
-<div class="condition-value">🌇 <span id="current-sunset">-</span></div>
-<div class="condition-label">Sunset</div>
-</div>
-</div>
-</div>
-<div class="widgets-container">
-<div class="widget">
-<h3>🕒 Hourly Forecast</h3>
-<div class="forecast-preview" id="hourly-preview"></div>
-</div>
-<div class="widget">
-<h3>📆 Daily Forecast</h3>
-<div class="forecast-preview" id="daily-preview"></div>
-</div>
-</div>
+  <div class="header">
+    <h1>🌤️ Weather Dashboard</h1>
+    <button class="refresh-btn" onclick="refreshWeather()">Refresh</button>
+    <div class="meta-info">
+      <span>🏢 Data Center: ${colo}</span>
+      <span>⏳ Processing Time: <span id="processing-time">-</span>ms</span>
+      <span>⏱ Fetched in: <span id="fetched-time">-</span>ms</span>
+      <span>🕒 Time: <span id="current-time">-</span></span>
+      <span>🌐 Timezone: <span id="current-timezone">-</span></span>
+      <span>🏙 City: <span id="current-city">-</span>, Country: <span id="current-country">-</span></span>
+    </div>
+  </div>
+  <div class="current-conditions" id="current-conditions">
+    <h2>Current Weather</h2>
+    <div class="condition">
+      <div class="condition-item">
+        <div class="condition-value">🌡️ <span id="current-temp">-</span></div>
+        <div class="condition-label">Temperature</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">👋 <span id="current-feels">-</span></div>
+        <div class="condition-label">Feels Like</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">💧 <span id="current-humidity">-</span></div>
+        <div class="condition-label">Humidity</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">🌧️ <span id="current-precipitation">-</span></div>
+        <div class="condition-label">Precipitation</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">🌬️ <span id="current-wind">-</span></div>
+        <div class="condition-label">Wind Speed</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">🧭 <span id="current-wind-dir">-</span></div>
+        <div class="condition-label">Wind Direction</div>
+      </div>
+    </div>
+    <div class="condition">
+      <div class="condition-item">
+        <div class="condition-value">🌅 <span id="current-sunrise">-</span></div>
+        <div class="condition-label">Sunrise</div>
+      </div>
+      <div class="condition-item">
+        <div class="condition-value">🌇 <span id="current-sunset">-</span></div>
+        <div class="condition-label">Sunset</div>
+      </div>
+    </div>
+  </div>
+  <div class="widgets-container">
+    <div class="widget">
+      <h3>🕒 Hourly Forecast (Next 3 Hours)</h3>
+      <div class="forecast-preview" id="hourly-preview" onclick="openModal('hourly')"></div>
+    </div>
+    <div class="widget">
+      <h3>📆 Daily Forecast (Next 3 Days)</h3>
+      <div class="forecast-preview" id="daily-preview" onclick="openModal('daily')"></div>
+    </div>
+  </div>
 </div>
 <div class="modal" id="hourly-modal">
-<div class="modal-content">
-<div class="modal-header">
-<h2>🕒 24-Hour Forecast</h2>
-<button class="close-btn" onclick="closeModal()">×</button>
-</div>
-<div class="forecast-details" id="hourly-details"></div>
-</div>
+  <div class="modal-content">
+    <button class="close-btn" onclick="closeModal('hourly')">×</button>
+    <h2>🕒 24-Hour Forecast</h2>
+    <div class="forecast-details" id="hourly-details"></div>
+  </div>
 </div>
 <div class="modal" id="daily-modal">
-<div class="modal-content">
-<div class="modal-header">
-<h2>📆 7-Day Forecast</h2>
-<button class="close-btn" onclick="closeModal()">×</button>
-</div>
-<div class="forecast-details" id="daily-details"></div>
-</div>
+  <div class="modal-content">
+    <button class="close-btn" onclick="closeModal('daily')">×</button>
+    <h2>📆 7-Day Forecast</h2>
+    <div class="forecast-details" id="daily-details"></div>
+  </div>
 </div>
 <script>
 let weatherData = null;
-async function loadWeather() {
+async function loadWeather(noCache) {
   const clientStartTime = performance.now();
   try {
     const coords = await getLocation();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const response = await fetch("/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz);
+    const weatherUrl = "/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz + (noCache ? "&noCache=true" : "");
+    const response = await fetch(weatherUrl);
     if (!response.ok) throw new Error("HTTP " + response.status);
     weatherData = await response.json();
     const fetchTime = Math.round(performance.now() - clientStartTime);
@@ -142,16 +139,17 @@ async function loadWeather() {
     updateUI();
     document.getElementById("current-time").textContent = new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
     document.getElementById("current-timezone").textContent = tz;
-    fetch("/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude).then(res => res.json()).then(data => {
-      document.getElementById("current-city").textContent = data.city;
-      document.getElementById("current-country").textContent = data.country;
-    }).catch(() => {
-      document.getElementById("current-city").textContent = "Unknown";
-      document.getElementById("current-country").textContent = "Unknown";
-    });
+    const c2lUrl = "/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude + (noCache ? "&noCache=true" : "");
+    const res = await fetch(c2lUrl);
+    const data = await res.json();
+    document.getElementById("current-city").textContent = data.city;
+    document.getElementById("current-country").textContent = data.country;
   } catch (error) {
     showError(error);
   }
+}
+function refreshWeather() {
+  loadWeather(true);
 }
 function updateUI() {
   document.getElementById("current-temp").textContent = weatherData.current.temp;
@@ -165,18 +163,19 @@ function updateUI() {
   var hourlyPreview = document.getElementById("hourly-preview");
   hourlyPreview.innerHTML = weatherData.hourly.slice(0, 3).map(function(hour) {
     return '<div class="forecast-item">' +
-           '<div class="condition-value">' + hour.time + '</div>' +
-           '<div class="condition-value">' + hour.temp + '</div>' +
-           '<div class="condition-value">' + hour.precipitation + '</div>' +
-           '<div class="condition-value">🧭 ' + hour.windDirection + '</div>' +
+           '<div>' + hour.time + '</div>' +
+           '<div>🌡️ ' + hour.temp + '</div>' +
+           '<div>💧 ' + hour.precipitation + '</div>' +
+           '<div>🧭 ' + hour.windDirection + '</div>' +
            '</div>';
   }).join("");
   var dailyPreview = document.getElementById("daily-preview");
   dailyPreview.innerHTML = weatherData.daily.slice(0, 3).map(function(day) {
     return '<div class="forecast-item">' +
-           '<div class="condition-value">' + day.date + '</div>' +
-           '<div class="condition-value">' + day.tempMax + '</div>' +
-           '<div class="condition-value">' + day.precipitationChance + '</div>' +
+           '<div>' + day.date + '</div>' +
+           '<div>🌡️ ' + day.tempMax + '</div>' +
+           '<div>🌡️ ' + day.tempMin + '</div>' +
+           '<div>🌧️ ' + day.precipitationChance + '</div>' +
            '</div>';
   }).join("");
   var metaInfo = document.querySelector(".meta-info");
@@ -185,15 +184,11 @@ function updateUI() {
                        '<span>⏱ Fetched in: <span id="fetched-time">' + document.getElementById("fetched-time").textContent + '</span>ms</span>' +
                        '<span>🕒 Time: <span id="current-time">' + document.getElementById("current-time").textContent + '</span></span>' +
                        '<span>🌐 Timezone: <span id="current-timezone">' + document.getElementById("current-timezone").textContent + '</span></span>' +
-                       '<span>🏙 City/Country: <span id="current-city">' + document.getElementById("current-city").textContent + '</span> (<span id="current-country">' + document.getElementById("current-country").textContent + '</span>)</span>';
+                       '<span>🏙 City: <span id="current-city">' + document.getElementById("current-city").textContent + '</span>, Country: <span id="current-country">' + document.getElementById("current-country").textContent + '</span></span>';
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
-    navigator.geolocation.getCurrentPosition(
-      function(pos) { resolve(pos.coords); },
-      function(error) { resolve({ latitude: 37.7749, longitude: -122.4194 }); },
-      { timeout: 5000 }
-    );
+    navigator.geolocation.getCurrentPosition(function(pos) { resolve(pos.coords); }, function(error) { resolve({ latitude: 37.7749, longitude: -122.4194 }); }, { timeout: 5000 });
   });
 }
 function showError(error) {
@@ -218,27 +213,34 @@ function showDailyForecast() {
     return '<div class="forecast-item">' +
            '<div>' + day.date + '</div>' +
            '<div>🌡️ ' + day.tempMax + '</div>' +
+           '<div>🌡️ ' + day.tempMin + '</div>' +
            '<div>🌧️ ' + day.precipitation + '</div>' +
-           '<div>⛅ ' + day.precipitationChance + '</div>' +
+           '<div>🌧️ ' + day.precipitationChance + '</div>' +
+           '<div>🌅 ' + day.sunrise + '</div>' +
+           '<div>🌇 ' + day.sunset + '</div>' +
            '</div>';
   }).join("");
 }
 function openModal(type) {
   if (type === "hourly") {
     showHourlyForecast();
+    document.getElementById("hourly-modal").style.display = "flex";
   } else {
     showDailyForecast();
+    document.getElementById("daily-modal").style.display = "flex";
   }
-  document.querySelector(".modal").style.display = "flex";
 }
-function closeModal() {
-  document.querySelector(".modal").style.display = "none";
+function closeModal(type) {
+  if (type === "hourly") {
+    document.getElementById("hourly-modal").style.display = "none";
+  } else {
+    document.getElementById("daily-modal").style.display = "none";
+  }
 }
 loadWeather();
 </script>
 </body>
 </html>`;
-
 export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
@@ -255,11 +257,13 @@ export default {
       if (!lat || !lon) {
         return new Response(JSON.stringify({ error: "lat and lon required", meta: { processedMs: Date.now() - startTime, colo: colo } }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
-      const c2lKey = "c2l-" + lat + "-" + lon;
-      const cachedC2l = await env.WEATHER_CACHE.get(c2lKey);
-      if (cachedC2l) {
-        const data = JSON.parse(cachedC2l);
-        return new Response(JSON.stringify({ ...data, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      if (!url.searchParams.has("noCache")) {
+        const c2lKey = "c2l-" + lat + "-" + lon;
+        const cachedC2l = await env.WEATHER_CACHE.get(c2lKey);
+        if (cachedC2l) {
+          const data = JSON.parse(cachedC2l);
+          return new Response(JSON.stringify({ ...data, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+        }
       }
       const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
       reverseUrl.searchParams.set("format", "json");
@@ -282,7 +286,9 @@ export default {
         if (reverseData.address.country) country = reverseData.address.country;
       }
       const result = { city: city, country: country };
-      await env.WEATHER_CACHE.put(c2lKey, JSON.stringify(result), { expirationTtl: 3600 });
+      if (!url.searchParams.has("noCache")) {
+        await env.WEATHER_CACHE.put("c2l-" + lat + "-" + lon, JSON.stringify(result), { expirationTtl: 3600 });
+      }
       return new Response(JSON.stringify({ ...result, meta: { processedMs: Date.now() - startTime, colo: colo } }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
     }
     if (url.pathname === "/api/weather") {
@@ -292,18 +298,20 @@ export default {
         tz: url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone
       };
       const cacheKey = "weather-" + params.lat + "-" + params.lon + "-" + params.tz;
-      const cached = await env.WEATHER_CACHE.get(cacheKey);
-      if (cached) {
-        const weatherPayload = JSON.parse(cached);
-        const meta = {
-          colo: colo,
-          coordinates: { lat: params.lat, lon: params.lon },
-          timezone: params.tz,
-          timestamp: new Date().toISOString(),
-          processedMs: Date.now() - startTime
-        };
-        const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
-        return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+      if (!url.searchParams.has("noCache")) {
+        const cached = await env.WEATHER_CACHE.get(cacheKey);
+        if (cached) {
+          const weatherPayload = JSON.parse(cached);
+          const meta = {
+            colo: colo,
+            coordinates: { lat: params.lat, lon: params.lon },
+            timezone: params.tz,
+            timestamp: new Date().toISOString(),
+            processedMs: Date.now() - startTime
+          };
+          const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
+          return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
+        }
       }
       try {
         const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
