@@ -1,11 +1,6 @@
 function formatTime(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleTimeString("en-US", {
-      timeZone: timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
+    return new Date(isoString).toLocaleTimeString("en-US", { timeZone: timeZone, hour: "2-digit", minute: "2-digit", hour12: false });
   } catch (e) {
     return "--:--";
   }
@@ -13,12 +8,7 @@ function formatTime(isoString, timeZone) {
 
 function formatDate(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", {
-      timeZone: timeZone,
-      weekday: "short",
-      month: "short",
-      day: "numeric"
-    });
+    return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
   } catch (e) {
     return "--/--";
   }
@@ -42,9 +32,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .meta-info { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--secondary); justify-content: center; margin-bottom: 1.5rem; }
 .meta-info span { white-space: nowrap; }
 .meta-info .location { display: flex; gap: 0.5rem; }
-@media (max-width: 767px) {
-  .meta-info .location { display: block; }
-}
+@media (max-width: 767px) { .meta-info .location { display: block; } }
 .current-conditions { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 12px var(--shadow); }
 .condition { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
 .condition-item { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; text-align: center; }
@@ -283,15 +271,11 @@ export default {
       "Expires": "0"
     };
 
-    // /api/c2l: Reverse geocoding to get city and country
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
       if (!lat || !lon) {
-        const meta = {
-          processedMs: Date.now() - startTime,
-          colo: colo
-        };
+        const meta = { processedMs: Date.now() - startTime, colo: colo };
         return new Response(JSON.stringify({ error: "lat and lon required", meta }), {
           status: 400,
           headers: { ...commonHeaders, "Content-Type": "application/json" }
@@ -308,7 +292,6 @@ export default {
           });
         }
       }
-      // Perform reverse geocoding
       const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
       reverseUrl.searchParams.set("format", "json");
       reverseUrl.searchParams.set("lat", lat);
@@ -316,7 +299,7 @@ export default {
       reverseUrl.searchParams.set("zoom", "10");
       reverseUrl.searchParams.set("addressdetails", "1");
       const reverseRes = await fetch(reverseUrl.toString(), {
-        headers: { "User-Agent": "yorgisbot" }
+        headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" }
       });
       if (!reverseRes.ok) {
         const meta = { processedMs: Date.now() - startTime, colo: colo };
@@ -345,13 +328,10 @@ export default {
       });
     }
 
-    // /api/weather: Fetch weather data with bucketing for similar coordinates
     if (url.pathname === "/api/weather") {
-      // Get precise coordinates
       const latRaw = parseFloat(url.searchParams.get("lat")) || 37.7749;
       const lonRaw = parseFloat(url.searchParams.get("lon")) || -122.4194;
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
-      // Bucket coordinates (round to two decimals)
       const bucketLat = Math.round(latRaw * 100) / 100;
       const bucketLon = Math.round(lonRaw * 100) / 100;
       const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz;
@@ -433,4 +413,13 @@ export default {
           timestamp: new Date().toISOString(),
           processedMs: Date.now() - startTime
         };
-        const responsePayload = { meta, current: weatherPayload.current, hourly: weat
+        const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
+        await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(weatherPayload), { expirationTtl: 3600 });
+        return new Response(JSON.stringify(responsePayload), {
+          headers: { ...commonHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        let city = "Unknown";
+        let country = "Unknown";
+        try {
+          c
