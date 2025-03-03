@@ -5,7 +5,6 @@ function formatTime(isoString, timeZone) {
     return "--:--";
   }
 }
-
 function formatDate(isoString, timeZone) {
   try {
     return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
@@ -13,7 +12,6 @@ function formatDate(isoString, timeZone) {
     return "--/--";
   }
 }
-
 const HTML = (colo) => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -259,27 +257,18 @@ loadWeather();
 </script>
 </body>
 </html>`;
-
 export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
     const url = new URL(request.url);
     const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
-    const commonHeaders = {
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      "Pragma": "no-cache",
-      "Expires": "0"
-    };
-
+    const commonHeaders = { "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate", "Pragma": "no-cache", "Expires": "0" };
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
       if (!lat || !lon) {
         const meta = { processedMs: Date.now() - startTime, colo: colo };
-        return new Response(JSON.stringify({ error: "lat and lon required", meta }), {
-          status: 400,
-          headers: { ...commonHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ error: "lat and lon required", meta }), { status: 400, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
       if (!url.searchParams.has("noCache")) {
         const c2lKey = "c2l-" + lat + "-" + lon;
@@ -287,9 +276,7 @@ export default {
         if (cachedC2l) {
           const data = JSON.parse(cachedC2l);
           const meta = { processedMs: Date.now() - startTime, colo: colo };
-          return new Response(JSON.stringify({ ...data, meta }), {
-            headers: { ...commonHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(JSON.stringify({ ...data, meta }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
         }
       }
       const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
@@ -298,15 +285,10 @@ export default {
       reverseUrl.searchParams.set("lon", lon);
       reverseUrl.searchParams.set("zoom", "10");
       reverseUrl.searchParams.set("addressdetails", "1");
-      const reverseRes = await fetch(reverseUrl.toString(), {
-        headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" }
-      });
+      const reverseRes = await fetch(reverseUrl.toString(), { headers: { "User-Agent": "yorgisbot" } });
       if (!reverseRes.ok) {
         const meta = { processedMs: Date.now() - startTime, colo: colo };
-        return new Response(JSON.stringify({ error: "Reverse geocoding failed", meta }), {
-          status: reverseRes.status,
-          headers: { ...commonHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify({ error: "Reverse geocoding failed", meta }), { status: reverseRes.status, headers: { ...commonHeaders, "Content-Type": "application/json" } });
       }
       const reverseData = await reverseRes.json();
       let city = "Unknown";
@@ -323,11 +305,8 @@ export default {
         await env.WEATHER_CACHE.put("c2l-" + lat + "-" + lon, JSON.stringify(result), { expirationTtl: 3600 });
       }
       const meta = { processedMs: Date.now() - startTime, colo: colo };
-      return new Response(JSON.stringify({ ...result, meta }), {
-        headers: { ...commonHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(JSON.stringify({ ...result, meta }), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
     }
-
     if (url.pathname === "/api/weather") {
       const latRaw = parseFloat(url.searchParams.get("lat")) || 37.7749;
       const lonRaw = parseFloat(url.searchParams.get("lon")) || -122.4194;
@@ -335,22 +314,13 @@ export default {
       const bucketLat = Math.round(latRaw * 100) / 100;
       const bucketLon = Math.round(lonRaw * 100) / 100;
       const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz;
-
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
           const weatherPayload = JSON.parse(cached);
-          const meta = {
-            colo: colo,
-            coordinates: { lat: latRaw, lon: lonRaw },
-            timezone: tz,
-            timestamp: new Date().toISOString(),
-            processedMs: Date.now() - startTime
-          };
+          const meta = { colo: colo, coordinates: { lat: latRaw, lon: lonRaw }, timezone: tz, timestamp: new Date().toISOString(), processedMs: Date.now() - startTime };
           const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
-          return new Response(JSON.stringify(responsePayload), {
-            headers: { ...commonHeaders, "Content-Type": "application/json" }
-          });
+          return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
         }
       }
       try {
@@ -365,11 +335,8 @@ export default {
         const response = await fetch(apiUrl);
         const textResponse = await response.text();
         if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error("Open-Meteo rate limit reached");
-          } else {
-            throw new Error("HTTP " + response.status);
-          }
+          if (response.status === 429) throw new Error("Open-Meteo rate limit reached");
+          else throw new Error("HTTP " + response.status);
         }
         const rawData = JSON.parse(textResponse);
         if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
@@ -406,20 +373,18 @@ export default {
             };
           })
         };
-        const meta = {
-          colo: colo,
-          coordinates: { lat: latRaw, lon: lonRaw },
-          timezone: tz,
-          timestamp: new Date().toISOString(),
-          processedMs: Date.now() - startTime
-        };
+        const meta = { colo: colo, coordinates: { lat: latRaw, lon: lonRaw }, timezone: tz, timestamp: new Date().toISOString(), processedMs: Date.now() - startTime };
         const responsePayload = { meta, current: weatherPayload.current, hourly: weatherPayload.hourly, daily: weatherPayload.daily };
         await env.WEATHER_CACHE.put(cacheKey, JSON.stringify(weatherPayload), { expirationTtl: 3600 });
-        return new Response(JSON.stringify(responsePayload), {
-          headers: { ...commonHeaders, "Content-Type": "application/json" }
-        });
+        return new Response(JSON.stringify(responsePayload), { headers: { ...commonHeaders, "Content-Type": "application/json" } });
       } catch (error) {
         let city = "Unknown";
         let country = "Unknown";
         try {
+          const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
+          reverseUrl.searchParams.set("format", "json");
+          reverseUrl.searchParams.set("lat", latRaw);
+          reverseUrl.searchParams.set("lon", lonRaw);
+          reverseUrl.searchParams.set("zoom", "10");
+          reverseUrl.searchParams.set("addressdetails", "1");
           c
