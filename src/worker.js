@@ -5,7 +5,6 @@ function formatTime(isoString, timeZone) {
     return "--:--";
   }
 }
-
 function formatDate(isoString, timeZone) {
   try {
     return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
@@ -13,7 +12,6 @@ function formatDate(isoString, timeZone) {
     return "--/--";
   }
 }
-
 const HTML = (colo) => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,6 +47,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .modal-header h2 { margin: 0; }
 .close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
 .modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
+.provider-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -56,6 +55,14 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
   <div class="header">
     <h1>🌤️ Weather Dashboard</h1>
     <button class="refresh-btn" onclick="refreshWeather()">Refresh</button>
+    <div class="provider-toggle">
+      Weather Provider:
+      <select id="weather-provider" onchange="refreshWeather()">
+        <option value="open-meteo">Open-Meteo</option>
+        <option value="metno">MET Norway</option>
+      </select>
+      <span id="provider-used"></span>
+    </div>
   </div>
   <div class="meta-info">
     <span id="data-center">🏢 Data Center: ${colo}</span>
@@ -143,7 +150,10 @@ async function loadWeather(noCache) {
   try {
     const coords = await getLocation();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const weatherUrl = "/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz + (noCache ? "&noCache=true" : "");
+    const provider = document.getElementById("weather-provider").value || "open-meteo";
+    document.getElementById("provider-used").textContent = " (Provider: " + provider + ")";
+    let weatherUrl = "/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz + "&provider=" + provider;
+    if (noCache) weatherUrl += "&noCache=true";
     const response = await fetch(weatherUrl);
     if (!response.ok) throw new Error("HTTP " + response.status);
     weatherData = await response.json();
@@ -259,7 +269,6 @@ loadWeather();
 </script>
 </body>
 </html>`;
-
 export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
@@ -270,7 +279,6 @@ export default {
       "Pragma": "no-cache",
       "Expires": "0"
     };
-
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
@@ -327,15 +335,14 @@ export default {
         headers: { ...commonHeaders, "Content-Type": "application/json" }
       });
     }
-
     if (url.pathname === "/api/weather") {
       const latRaw = parseFloat(url.searchParams.get("lat")) || 37.7749;
       const lonRaw = parseFloat(url.searchParams.get("lon")) || -122.4194;
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const provider = url.searchParams.get("provider") || "open-meteo";
       const bucketLat = Math.round(latRaw * 100) / 100;
       const bucketLon = Math.round(lonRaw * 100) / 100;
-      const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz;
-
+      const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz + "-" + provider;
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
@@ -354,58 +361,117 @@ export default {
         }
       }
       try {
-        const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
-        apiUrl.searchParams.set("latitude", latRaw);
-        apiUrl.searchParams.set("longitude", lonRaw);
-        apiUrl.searchParams.set("timezone", tz);
-        apiUrl.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m");
-        apiUrl.searchParams.set("current", "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m");
-        apiUrl.searchParams.set("daily", "weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max");
-        apiUrl.searchParams.set("forecast_days", 7);
-        const response = await fetch(apiUrl);
-        const textResponse = await response.text();
-        if (!response.ok) {
-          if (response.status === 429) {
-            throw new Error("Open-Meteo rate limit reached");
-          } else {
-            throw new Error("HTTP " + response.status);
+        let weatherPayload;
+        if (provider === "metno") {
+          const metnoUrl = new URL("https://api.met.no/weatherapi/locationforecast/2.0/compact");
+          metnoUrl.searchParams.set("lat", latRaw);
+          metnoUrl.searchParams.set("lon", lonRaw);
+          const metnoRes = await fetch(metnoUrl.toString(), {
+            headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" }
+          });
+          if (!metnoRes.ok) {
+            throw new Error("MET Norway API error: HTTP " + metnoRes.status);
           }
+          const rawData = await metnoRes.json();
+          const timeseries = rawData.properties.timeseries;
+          const currentDetails = timeseries[0].data.instant.details;
+          const hourly = timeseries.slice(0, 24).map(entry => ({
+            time: formatTime(entry.time, tz),
+            temp: entry.data.instant.details.air_temperature + "°C",
+            precipitation: entry.data.next_1_hours ? entry.data.next_1_hours.details.precipitation_amount + "mm" : "0mm",
+            windSpeed: entry.data.instant.details.wind_speed + " m/s",
+            windDirection: entry.data.instant.details.wind_from_direction
+          }));
+          const dailyMap = {};
+          timeseries.forEach(entry => {
+            const dateKey = formatDate(entry.time, tz);
+            if (!dailyMap[dateKey]) {
+              dailyMap[dateKey] = { temps: [], precipitations: [] };
+            }
+            dailyMap[dateKey].temps.push(entry.data.instant.details.air_temperature);
+            dailyMap[dateKey].precipitations.push(entry.data.next_1_hours ? entry.data.next_1_hours.details.precipitation_amount : 0);
+          });
+          const daily = Object.keys(dailyMap).slice(0, 7).map(dateKey => {
+            const temps = dailyMap[dateKey].temps;
+            const totalPrecip = dailyMap[dateKey].precipitations.reduce((a, b) => a + b, 0);
+            return {
+              date: dateKey,
+              tempMax: Math.max(...temps) + "°C",
+              tempMin: Math.min(...temps) + "°C",
+              precipitation: totalPrecip + "mm",
+              precipitationChance: "N/A",
+              sunrise: "--:--",
+              sunset: "--:--"
+            };
+          });
+          weatherPayload = {
+            current: {
+              temp: currentDetails.air_temperature + "°C",
+              feelsLike: currentDetails.air_temperature + "°C",
+              humidity: currentDetails.relative_humidity + "%",
+              precipitation: "N/A",
+              windSpeed: currentDetails.wind_speed + " m/s",
+              windDirection: currentDetails.wind_from_direction,
+              sunrise: "--:--",
+              sunset: "--:--"
+            },
+            hourly,
+            daily
+          };
+        } else {
+          const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
+          apiUrl.searchParams.set("latitude", latRaw);
+          apiUrl.searchParams.set("longitude", lonRaw);
+          apiUrl.searchParams.set("timezone", tz);
+          apiUrl.searchParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m");
+          apiUrl.searchParams.set("current", "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m");
+          apiUrl.searchParams.set("daily", "weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max");
+          apiUrl.searchParams.set("forecast_days", 7);
+          const response = await fetch(apiUrl);
+          const textResponse = await response.text();
+          if (!response.ok) {
+            if (response.status === 429) {
+              throw new Error("Open-Meteo rate limit reached");
+            } else {
+              throw new Error("HTTP " + response.status);
+            }
+          }
+          const rawData = JSON.parse(textResponse);
+          if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
+          weatherPayload = {
+            current: {
+              temp: rawData.current.temperature_2m + "°C",
+              feelsLike: rawData.current.apparent_temperature + "°C",
+              humidity: rawData.current.relative_humidity_2m + "%",
+              precipitation: (rawData.current.precipitation ?? 0) + "mm",
+              windSpeed: rawData.current.wind_speed_10m + " km/h",
+              windDirection: rawData.current.wind_direction_10m,
+              sunrise: formatTime(rawData.daily.sunrise[0], tz),
+              sunset: formatTime(rawData.daily.sunset[0], tz)
+            },
+            hourly: rawData.hourly.time.slice(0, 24).map(function(time, i) {
+              return {
+                time: formatTime(time, tz),
+                temp: rawData.hourly.temperature_2m[i] + "°C",
+                precipitation: rawData.hourly.precipitation_probability[i] + "%",
+                precipitationAmount: rawData.hourly.precipitation[i] + "mm",
+                windSpeed: rawData.hourly.wind_speed_10m[i] + " km/h",
+                windDirection: rawData.hourly.wind_direction_10m[i]
+              };
+            }),
+            daily: rawData.daily.time.slice(0, 7).map(function(date, i) {
+              return {
+                date: formatDate(date, tz),
+                tempMax: rawData.daily.temperature_2m_max[i] + "°C",
+                tempMin: rawData.daily.temperature_2m_min[i] + "°C",
+                precipitation: rawData.daily.precipitation_sum[i] + "mm",
+                precipitationChance: rawData.daily.precipitation_probability_max[i] + "%",
+                sunrise: formatTime(rawData.daily.sunrise[i], tz),
+                sunset: formatTime(rawData.daily.sunset[i], tz)
+              };
+            })
+          };
         }
-        const rawData = JSON.parse(textResponse);
-        if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
-        const weatherPayload = {
-          current: {
-            temp: rawData.current.temperature_2m + "°C",
-            feelsLike: rawData.current.apparent_temperature + "°C",
-            humidity: rawData.current.relative_humidity_2m + "%",
-            precipitation: (rawData.current.precipitation ?? 0) + "mm",
-            windSpeed: rawData.current.wind_speed_10m + " km/h",
-            windDirection: rawData.current.wind_direction_10m,
-            sunrise: formatTime(rawData.daily.sunrise[0], tz),
-            sunset: formatTime(rawData.daily.sunset[0], tz)
-          },
-          hourly: rawData.hourly.time.slice(0, 24).map(function(time, i) {
-            return {
-              time: formatTime(time, tz),
-              temp: rawData.hourly.temperature_2m[i] + "°C",
-              precipitation: rawData.hourly.precipitation_probability[i] + "%",
-              precipitationAmount: rawData.hourly.precipitation[i] + "mm",
-              windSpeed: rawData.hourly.wind_speed_10m[i] + " km/h",
-              windDirection: rawData.hourly.wind_direction_10m[i]
-            };
-          }),
-          daily: rawData.daily.time.slice(0, 7).map(function(date, i) {
-            return {
-              date: formatDate(date, tz),
-              tempMax: rawData.daily.temperature_2m_max[i] + "°C",
-              tempMin: rawData.daily.temperature_2m_min[i] + "°C",
-              precipitation: rawData.daily.precipitation_sum[i] + "mm",
-              precipitationChance: rawData.daily.precipitation_probability_max[i] + "%",
-              sunrise: formatTime(rawData.daily.sunrise[i], tz),
-              sunset: formatTime(rawData.daily.sunset[i], tz)
-            };
-          })
-        };
         const meta = {
           colo: colo,
           coordinates: { lat: latRaw, lon: lonRaw },
@@ -458,4 +524,3 @@ export default {
     });
   }
 };
-
