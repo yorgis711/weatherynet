@@ -79,10 +79,8 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
     <span id="fetched-time-meta">⏱ Fetched in: - ms</span>
     <span id="current-time-meta">🕒 Time: -</span>
     <span id="current-timezone-meta">🌐 Timezone: -</span>
-    <span class="location">
-      <span>🏙 City: <span id="current-city">-</span></span>
-      <span>Country: <span id="current-country">-</span></span>
-    </span>
+    <span>🏙 City: <span id="current-city">-</span></span>
+    <span>Country: <span id="current-country">-</span></span>
   </div>
   <div id="error-display"></div>
   <div class="current-conditions" id="current-conditions">
