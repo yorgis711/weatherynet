@@ -47,7 +47,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .modal-header h2 { margin: 0; }
 .close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
 .modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
-.provider-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
+.provider-toggle, .units-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -62,6 +62,14 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
         <option value="metno">MET Norway</option>
       </select>
       <span id="provider-used"></span>
+    </div>
+    <div class="units-toggle">
+      Units:
+      <select id="units" onchange="refreshWeather()">
+        <option value="metric">Metric</option>
+        <option value="imperial">Imperial</option>
+      </select>
+      <span id="units-used"></span>
     </div>
   </div>
   <div class="meta-info">
@@ -151,8 +159,10 @@ async function loadWeather(noCache) {
     const coords = await getLocation();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const provider = document.getElementById("weather-provider").value || "open-meteo";
+    const units = document.getElementById("units").value || "metric";
     document.getElementById("provider-used").textContent = " (Provider: " + provider + ")";
-    let weatherUrl = "/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz + "&provider=" + provider;
+    document.getElementById("units-used").textContent = " (Units: " + units + ")";
+    let weatherUrl = "/api/weather?lat=" + coords.latitude + "&lon=" + coords.longitude + "&tz=" + tz + "&provider=" + provider + "&units=" + units;
     if (noCache) weatherUrl += "&noCache=true";
     const response = await fetch(weatherUrl);
     if (!response.ok) throw new Error("HTTP " + response.status);
@@ -207,7 +217,7 @@ function getLocation() {
   return new Promise(function(resolve, reject) {
     navigator.geolocation.getCurrentPosition(
       function(pos) { resolve(pos.coords); },
-      function(error) { resolve({ latitude: 37.7749, longitude: -122.4194 }); },
+      function(error) { resolve({ latitude: 0, longitude: 0 }); },
       { timeout: 5000 }
     );
   });
@@ -279,6 +289,18 @@ export default {
       "Pragma": "no-cache",
       "Expires": "0"
     };
+    function convertTemp(temp, units) {
+      return units === "imperial" ? (temp * 9/5 + 32).toFixed(1) + "°F" : temp.toFixed(1) + "°C";
+    }
+    function convertWindFromMs(speed, units) {
+      return units === "imperial" ? (speed * 2.23694).toFixed(1) + " mph" : (speed * 3.6).toFixed(1) + " km/h";
+    }
+    function convertWindFromKmh(speed, units) {
+      return units === "imperial" ? (speed * 0.621371).toFixed(1) + " mph" : speed.toFixed(1) + " km/h";
+    }
+    function convertPrecip(precip, units) {
+      return units === "imperial" ? (precip / 25.4).toFixed(2) + " in" : precip.toFixed(1) + " mm";
+    }
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
@@ -307,7 +329,7 @@ export default {
       reverseUrl.searchParams.set("zoom", "10");
       reverseUrl.searchParams.set("addressdetails", "1");
       const reverseRes = await fetch(reverseUrl.toString(), {
-        headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" }
+        headers: { "User-Agent": "yorgisbot" }
       });
       if (!reverseRes.ok) {
         const meta = { processedMs: Date.now() - startTime, colo: colo };
@@ -336,13 +358,14 @@ export default {
       });
     }
     if (url.pathname === "/api/weather") {
-      const latRaw = parseFloat(url.searchParams.get("lat")) || 37.7749;
-      const lonRaw = parseFloat(url.searchParams.get("lon")) || -122.4194;
+      const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
+      const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const provider = url.searchParams.get("provider") || "open-meteo";
+      const units = url.searchParams.get("units") || "metric";
       const bucketLat = Math.round(latRaw * 100) / 100;
       const bucketLon = Math.round(lonRaw * 100) / 100;
-      const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz + "-" + provider;
+      const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz + "-" + provider + "-" + units;
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
@@ -367,7 +390,7 @@ export default {
           metnoUrl.searchParams.set("lat", latRaw);
           metnoUrl.searchParams.set("lon", lonRaw);
           const metnoRes = await fetch(metnoUrl.toString(), {
-            headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" }
+            headers: { "User-Agent": "yorgisbot" }
           });
           if (!metnoRes.ok) {
             throw new Error("MET Norway API error: HTTP " + metnoRes.status);
@@ -377,9 +400,9 @@ export default {
           const currentDetails = timeseries[0].data.instant.details;
           const hourly = timeseries.slice(0, 24).map(entry => ({
             time: formatTime(entry.time, tz),
-            temp: entry.data.instant.details.air_temperature + "°C",
-            precipitation: entry.data.next_1_hours ? entry.data.next_1_hours.details.precipitation_amount + "mm" : "0mm",
-            windSpeed: entry.data.instant.details.wind_speed + " m/s",
+            temp: convertTemp(entry.data.instant.details.air_temperature, units),
+            precipitation: entry.data.next_1_hours ? convertPrecip(entry.data.next_1_hours.details.precipitation_amount, units) : (units==="imperial" ? "0.00 in" : "0.0 mm"),
+            windSpeed: convertWindFromMs(entry.data.instant.details.wind_speed, units),
             windDirection: entry.data.instant.details.wind_from_direction
           }));
           const dailyMap = {};
@@ -396,9 +419,9 @@ export default {
             const totalPrecip = dailyMap[dateKey].precipitations.reduce((a, b) => a + b, 0);
             return {
               date: dateKey,
-              tempMax: Math.max(...temps) + "°C",
-              tempMin: Math.min(...temps) + "°C",
-              precipitation: totalPrecip + "mm",
+              tempMax: convertTemp(Math.max(...temps), units),
+              tempMin: convertTemp(Math.min(...temps), units),
+              precipitation: convertPrecip(totalPrecip, units),
               precipitationChance: "N/A",
               sunrise: "--:--",
               sunset: "--:--"
@@ -406,11 +429,11 @@ export default {
           });
           weatherPayload = {
             current: {
-              temp: currentDetails.air_temperature + "°C",
-              feelsLike: currentDetails.air_temperature + "°C",
+              temp: convertTemp(currentDetails.air_temperature, units),
+              feelsLike: convertTemp(currentDetails.air_temperature, units),
               humidity: currentDetails.relative_humidity + "%",
               precipitation: "N/A",
-              windSpeed: currentDetails.wind_speed + " m/s",
+              windSpeed: convertWindFromMs(currentDetails.wind_speed, units),
               windDirection: currentDetails.wind_from_direction,
               sunrise: "--:--",
               sunset: "--:--"
@@ -440,11 +463,11 @@ export default {
           if (!rawData.latitude || !rawData.longitude) throw new Error("Invalid API response");
           weatherPayload = {
             current: {
-              temp: rawData.current.temperature_2m + "°C",
-              feelsLike: rawData.current.apparent_temperature + "°C",
+              temp: convertTemp(rawData.current.temperature_2m, units),
+              feelsLike: convertTemp(rawData.current.apparent_temperature, units),
               humidity: rawData.current.relative_humidity_2m + "%",
-              precipitation: (rawData.current.precipitation ?? 0) + "mm",
-              windSpeed: rawData.current.wind_speed_10m + " km/h",
+              precipitation: convertPrecip(rawData.current.precipitation ?? 0, units),
+              windSpeed: convertWindFromKmh(rawData.current.wind_speed_10m, units),
               windDirection: rawData.current.wind_direction_10m,
               sunrise: formatTime(rawData.daily.sunrise[0], tz),
               sunset: formatTime(rawData.daily.sunset[0], tz)
@@ -452,19 +475,19 @@ export default {
             hourly: rawData.hourly.time.slice(0, 24).map(function(time, i) {
               return {
                 time: formatTime(time, tz),
-                temp: rawData.hourly.temperature_2m[i] + "°C",
+                temp: convertTemp(rawData.hourly.temperature_2m[i], units),
                 precipitation: rawData.hourly.precipitation_probability[i] + "%",
-                precipitationAmount: rawData.hourly.precipitation[i] + "mm",
-                windSpeed: rawData.hourly.wind_speed_10m[i] + " km/h",
+                precipitationAmount: convertPrecip(rawData.hourly.precipitation[i], units),
+                windSpeed: convertWindFromKmh(rawData.hourly.wind_speed_10m[i], units),
                 windDirection: rawData.hourly.wind_direction_10m[i]
               };
             }),
             daily: rawData.daily.time.slice(0, 7).map(function(date, i) {
               return {
                 date: formatDate(date, tz),
-                tempMax: rawData.daily.temperature_2m_max[i] + "°C",
-                tempMin: rawData.daily.temperature_2m_min[i] + "°C",
-                precipitation: rawData.daily.precipitation_sum[i] + "mm",
+                tempMax: convertTemp(rawData.daily.temperature_2m_max[i], units),
+                tempMin: convertTemp(rawData.daily.temperature_2m_min[i], units),
+                precipitation: convertPrecip(rawData.daily.precipitation_sum[i], units),
                 precipitationChance: rawData.daily.precipitation_probability_max[i] + "%",
                 sunrise: formatTime(rawData.daily.sunrise[i], tz),
                 sunset: formatTime(rawData.daily.sunset[i], tz)
@@ -494,7 +517,7 @@ export default {
           reverseUrl.searchParams.set("lon", lonRaw);
           reverseUrl.searchParams.set("zoom", "10");
           reverseUrl.searchParams.set("addressdetails", "1");
-          const reverseRes = await fetch(reverseUrl.toString(), { headers: { "User-Agent": "CloudflareWorkerWeatherApp/1.0" } });
+          const reverseRes = await fetch(reverseUrl.toString(), { headers: { "User-Agent": "yorgisbot" } });
           if (reverseRes.ok) {
             const reverseData = await reverseRes.json();
             if (reverseData.address) {
