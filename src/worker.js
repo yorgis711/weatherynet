@@ -48,6 +48,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
 .close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
 .modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
 .provider-toggle, .units-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
+#error-display { color: red; text-align: center; margin-top: 1rem; }
 </style>
 </head>
 <body>
@@ -57,7 +58,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
     <button class="refresh-btn" onclick="refreshWeather()">Refresh</button>
     <div class="provider-toggle">
       Weather Provider:
-      <select id="weather-provider" onchange="refreshWeather()">
+      <select id="weather-provider" onchange="refreshWeather(); localStorage.setItem('weather-provider', this.value);">
         <option value="open-meteo">Open-Meteo</option>
         <option value="metno">MET Norway</option>
       </select>
@@ -65,7 +66,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
     </div>
     <div class="units-toggle">
       Units:
-      <select id="units" onchange="refreshWeather()">
+      <select id="units" onchange="refreshWeather(); localStorage.setItem('units', this.value);">
         <option value="metric">Metric</option>
         <option value="imperial">Imperial</option>
       </select>
@@ -83,6 +84,7 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
       <span>Country: <span id="current-country">-</span></span>
     </span>
   </div>
+  <div id="error-display"></div>
   <div class="current-conditions" id="current-conditions">
     <h2>Current Weather</h2>
     <div class="condition">
@@ -152,9 +154,16 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
   </div>
 </div>
 <script>
+if(localStorage.getItem("weather-provider")) {
+  document.getElementById("weather-provider").value = localStorage.getItem("weather-provider")
+}
+if(localStorage.getItem("units")) {
+  document.getElementById("units").value = localStorage.getItem("units")
+}
 let weatherData = null;
 async function loadWeather(noCache) {
   const clientStartTime = performance.now();
+  document.getElementById("error-display").textContent = "";
   try {
     const coords = await getLocation();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -179,7 +188,24 @@ async function loadWeather(noCache) {
     document.getElementById("current-city").textContent = data.city;
     document.getElementById("current-country").textContent = data.country;
   } catch (error) {
-    showError(error);
+    const now = new Date();
+    document.getElementById("fetched-time-meta").textContent = "⏱ Fetched in: 0ms";
+    document.getElementById("processing-time-meta").textContent = "⏳ Processing Time: 0ms";
+    document.getElementById("current-time-meta").textContent = "🕒 Time: " + now.toLocaleTimeString("en-US");
+    document.getElementById("current-timezone-meta").textContent = "🌐 Timezone: N/A";
+    document.getElementById("current-city").textContent = "Unknown";
+    document.getElementById("current-country").textContent = "Unknown";
+    document.getElementById("current-temp").textContent = "--";
+    document.getElementById("current-feels").textContent = "--";
+    document.getElementById("current-humidity").textContent = "--";
+    document.getElementById("current-precipitation").textContent = "--";
+    document.getElementById("current-wind").textContent = "--";
+    document.getElementById("current-wind-dir").textContent = "--";
+    document.getElementById("current-sunrise").textContent = "--";
+    document.getElementById("current-sunset").textContent = "--";
+    document.getElementById("hourly-preview").innerHTML = "";
+    document.getElementById("daily-preview").innerHTML = "";
+    document.getElementById("error-display").textContent = "Error: " + error.message;
   }
 }
 function refreshWeather() {
@@ -221,10 +247,6 @@ function getLocation() {
       { timeout: 5000 }
     );
   });
-}
-function showError(error) {
-  console.error("Error:", error);
-  alert("An error occurred: " + error.message);
 }
 function showHourlyForecast() {
   var details = document.getElementById("hourly-details");
@@ -363,9 +385,10 @@ export default {
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const provider = url.searchParams.get("provider") || "open-meteo";
       const units = url.searchParams.get("units") || "metric";
-      const bucketLat = Math.round(latRaw * 100) / 100;
-      const bucketLon = Math.round(lonRaw * 100) / 100;
-      const cacheKey = "weather-" + bucketLat + "-" + bucketLon + "-" + tz + "-" + provider + "-" + units;
+      const bucketPrecision = 0.0045;
+      const bucketLat = Math.round(latRaw / bucketPrecision) * bucketPrecision;
+      const bucketLon = Math.round(lonRaw / bucketPrecision) * bucketPrecision;
+      const cacheKey = "weather-" + bucketLat.toFixed(4) + "-" + bucketLon.toFixed(4) + "-" + tz + "-" + provider + "-" + units;
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
