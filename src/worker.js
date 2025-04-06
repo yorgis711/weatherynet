@@ -1,57 +1,72 @@
 function formatTime(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleTimeString("en-US", { timeZone: timeZone, hour: "2-digit", minute: "2-digit", hour12: false });
+    return new Date(isoString).toLocaleTimeString("en-US", {
+      timeZone: timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
   } catch (e) {
     return "--:--";
   }
 }
 function formatDate(isoString, timeZone) {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", { timeZone: timeZone, weekday: "short", month: "short", day: "numeric" });
+    return new Date(isoString).toLocaleDateString("en-US", {
+      timeZone: timeZone,
+      weekday: "short",
+      month: "short",
+      day: "numeric"
+    });
   } catch (e) {
     return "--/--";
   }
 }
-const HTML = (colo) => `<!DOCTYPE html>
+const HTML = (colo, fallbackLat, fallbackLon) => `<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🌤️ Weather Dashboard</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root { --primary: #2d3436; --secondary: #636e72; --background: #f0f2f5; --card-bg: #ffffff; --accent: #0984e3; --shadow: rgba(0, 0, 0, 0.1); }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: "Inter", sans-serif; background: var(--background); color: var(--primary); padding: 1rem; }
-.container { max-width: 1200px; margin: 0 auto; }
-.header { text-align: center; margin-bottom: 1rem; }
-.header h1 { margin-bottom: 0.5rem; }
-.refresh-btn { margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; }
-.meta-info { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--secondary); justify-content: center; margin-bottom: 1.5rem; }
-.meta-info span { white-space: nowrap; }
-.meta-info .location { display: flex; gap: 0.5rem; }
-@media (max-width: 767px) { .meta-info .location { display: block; } }
-.current-conditions { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 12px var(--shadow); }
-.condition { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
-.condition-item { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; text-align: center; }
-.condition-value { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
-.condition-label { color: var(--secondary); font-size: 0.9rem; }
-.widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
-.widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
-.widget:hover { transform: translateY(-3px); }
-.forecast-preview { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; cursor: pointer; }
-.forecast-item { flex: 0 0 150px; background: var(--card-bg); padding: 1rem; border-radius: 1rem; box-shadow: 0 2px 4px var(--shadow); }
-.modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); display: none; justify-content: center; align-items: center; }
-.modal-content { background: var(--card-bg); border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: hidden; position: relative; }
-.modal-header { display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 2rem 0 2rem; }
-.modal-header h2 { margin: 0; }
-.close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
-.modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
-.provider-toggle, .units-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
-#error-display { color: red; text-align: center; margin-top: 1rem; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🌤️ Weather Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #2d3436; --secondary: #636e72; --background: #f0f2f5; --card-bg: #ffffff; --accent: #0984e3; --shadow: rgba(0, 0, 0, 0.1); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Inter", sans-serif; background: var(--background); color: var(--primary); padding: 1rem; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 1rem; }
+    .header h1 { margin-bottom: 0.5rem; }
+    .refresh-btn { margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 0.5rem; cursor: pointer; }
+    .meta-info { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.9rem; color: var(--secondary); justify-content: center; margin-bottom: 1.5rem; }
+    .meta-info span { white-space: nowrap; }
+    .meta-info .location { display: flex; gap: 0.5rem; }
+    @media (max-width: 767px) { .meta-info .location { display: block; } }
+    .current-conditions { background: var(--card-bg); padding: 2rem; border-radius: 1.5rem; margin-bottom: 2rem; box-shadow: 0 4px 12px var(--shadow); }
+    .condition { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .condition-item { background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 0.75rem; text-align: center; }
+    .condition-value { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .condition-label { color: var(--secondary); font-size: 0.9rem; }
+    .widgets-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+    .widget { background: var(--card-bg); padding: 1.5rem; border-radius: 1rem; box-shadow: 0 4px 12px var(--shadow); transition: transform 0.2s ease; }
+    .widget:hover { transform: translateY(-3px); }
+    .widget.ai-summary { }
+    .forecast-preview { display: flex; gap: 1rem; overflow-x: auto; padding: 1rem 0; cursor: pointer; }
+    .forecast-item { flex: 0 0 150px; background: var(--card-bg); padding: 1rem; border-radius: 1rem; box-shadow: 0 2px 4px var(--shadow); }
+    .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.4); display: none; justify-content: center; align-items: center; }
+    .modal-content { background: var(--card-bg); border-radius: 1.5rem; max-width: 90%; max-height: 90vh; overflow: hidden; position: relative; }
+    .modal-header { display: flex; justify-content: center; align-items: center; position: relative; padding: 1rem 2rem 0 2rem; }
+    .modal-header h2 { margin: 0; }
+    .close-btn { position: absolute; right: 1rem; top: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--primary); z-index: 10; }
+    .modal-body { overflow-y: auto; max-height: calc(90vh - 4rem); padding: 1rem 2rem 2rem 2rem; }
+    .provider-toggle, .units-toggle { margin-top: 0.5rem; font-size: 0.9rem; }
+    #error-display { color: red; text-align: center; margin-top: 1rem; }
+  </style>
 </head>
 <body>
+<!-- Inject fallback coordinates from the request -->
+<script>
+  const fallbackCoords = { latitude: ${fallbackLat}, longitude: ${fallbackLon} };
+</script>
 <div class="container">
   <div class="header">
     <h1>🌤️ Weather Dashboard</h1>
@@ -59,8 +74,8 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
     <div class="provider-toggle">
       Weather Provider:
       <select id="weather-provider" onchange="refreshWeather(); localStorage.setItem('weather-provider', this.value);">
-        <option value="open-meteo">Open-Meteo</option>
         <option value="metno">MET Norway</option>
+        <option value="open-meteo">Open-Meteo</option>
       </select>
       <span id="provider-used"></span>
     </div>
@@ -131,6 +146,10 @@ body { font-family: "Inter", sans-serif; background: var(--background); color: v
       <h3>📆 Daily Forecast (Next 3 Days)</h3>
       <div class="forecast-preview" id="daily-preview" onclick="openModal('daily')"></div>
     </div>
+    <div class="widget ai-summary">
+      <h3>🤖 AI Weather Summary</h3>
+      <div id="ai-summary-content">Loading summary...</div>
+    </div>
   </div>
 </div>
 <div class="modal" id="hourly-modal">
@@ -163,9 +182,19 @@ async function loadWeather(noCache) {
   const clientStartTime = performance.now();
   document.getElementById("error-display").textContent = "";
   try {
-    const coords = await getLocation();
+    // Try to use the browser's geolocation API first.
+    let coords;
+    try {
+      coords = await getLocation();
+    } catch (e) {
+      coords = null;
+    }
+    // If no coordinates were found, use the fallback provided by the server.
+    if (!coords || (coords.latitude === 0 && coords.longitude === 0)) {
+      coords = fallbackCoords;
+    }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const provider = document.getElementById("weather-provider").value || "open-meteo";
+    const provider = document.getElementById("weather-provider").value || "metno";
     const units = document.getElementById("units").value || "metric";
     document.getElementById("provider-used").textContent = " (Provider: " + provider + ")";
     document.getElementById("units-used").textContent = " (Units: " + units + ")";
@@ -236,12 +265,33 @@ function updateUI() {
            '<div>🌧️ ' + day.precipitationChance + '</div>' +
            '</div>';
   }).join("");
+  updateSummary();
+}
+// A simple function to generate an AI-like summary based on the current weather
+function updateSummary() {
+  if (!weatherData || !weatherData.current) {
+    document.getElementById("ai-summary-content").textContent = "No weather data available.";
+    return;
+  }
+  const tempMatch = weatherData.current.temp.match(/-?\\d+(\\.\\d+)?/);
+  const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
+  const precipitation = weatherData.current.precipitation;
+  let summary = "Currently, the weather is ";
+  if (temp !== null) {
+    summary += temp > 25 ? "warm" : (temp < 15 ? "cool" : "mild");
+  } else {
+    summary += "of moderate temperature";
+  }
+  summary += ". ";
+  summary += precipitation !== "N/A" ? "There is a chance of precipitation. " : "Precipitation data is not available. ";
+  summary += "Overall, expect a day that feels " + (temp !== null ? (temp > 25 ? "energetic" : (temp < 15 ? "chilly" : "comfortable")) : "average") + ".";
+  document.getElementById("ai-summary-content").textContent = summary;
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
     navigator.geolocation.getCurrentPosition(
       function(pos) { resolve(pos.coords); },
-      function(error) { resolve({ latitude: 0, longitude: 0 }); },
+      function(error) { reject(error); },
       { timeout: 5000 }
     );
   });
@@ -303,7 +353,10 @@ export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
     const url = new URL(request.url);
+    // Get data center info and fallback coordinates from Cloudflare if available.
     const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
+    const fallbackLat = (request.cf && request.cf.latitude) ? request.cf.latitude : 0;
+    const fallbackLon = (request.cf && request.cf.longitude) ? request.cf.longitude : 0;
     const commonHeaders = {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       "Pragma": "no-cache",
@@ -378,26 +431,16 @@ export default {
       });
     }
     if (url.pathname === "/api/weather") {
-  const useBucketing = false; // Toggle this to true if you want bucketing
-
-  const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
-  const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
-  const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const provider = url.searchParams.get("provider") || "open-meteo";
-  const units = url.searchParams.get("units") || "metric";
-
-  const bucketPrecision = 0.0045;
-  const lat = useBucketing
-    ? Math.round(latRaw / bucketPrecision) * bucketPrecision
-    : latRaw;
-  const lon = useBucketing
-    ? Math.round(lonRaw / bucketPrecision) * bucketPrecision
-    : lonRaw;
-
-  const cacheKey =
-    "weather-" + lat.toFixed(6) + "-" + lon.toFixed(6) + "-" + tz + "-" + provider + "-" + units;
-
-  
+      const useBucketing = false;
+      const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
+      const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
+      const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const provider = url.searchParams.get("provider") || "metno";
+      const units = url.searchParams.get("units") || "metric";
+      const bucketPrecision = 0.0045;
+      const lat = useBucketing ? Math.round(latRaw / bucketPrecision) * bucketPrecision : latRaw;
+      const lon = useBucketing ? Math.round(lonRaw / bucketPrecision) * bucketPrecision : lonRaw;
+      const cacheKey = "weather-" + lat.toFixed(6) + "-" + lon.toFixed(6) + "-" + tz + "-" + provider + "-" + units;
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
@@ -418,6 +461,7 @@ export default {
       try {
         let weatherPayload;
         if (provider === "metno") {
+          // Fetch MET Norway compact forecast.
           const metnoUrl = new URL("https://api.met.no/weatherapi/locationforecast/2.0/compact");
           metnoUrl.searchParams.set("lat", latRaw);
           metnoUrl.searchParams.set("lon", lonRaw);
@@ -473,7 +517,53 @@ export default {
             hourly,
             daily
           };
+          // Use MET Norway's sunrise API for sunrise/sunset data.
+          // First, update current conditions.
+          const today = new Date().toISOString().split("T")[0];
+          const sunriseUrl = new URL("https://api.met.no/weatherapi/sunrise/2.0/");
+          sunriseUrl.searchParams.set("lat", latRaw);
+          sunriseUrl.searchParams.set("lon", lonRaw);
+          sunriseUrl.searchParams.set("date", today);
+          sunriseUrl.searchParams.set("formatted", "true");
+          const sunriseRes = await fetch(sunriseUrl.toString(), {
+            headers: { "User-Agent": "yorgisbot" }
+          });
+          if(sunriseRes.ok) {
+            const sunriseData = await sunriseRes.json();
+            if(sunriseData.location && sunriseData.location.time && sunriseData.location.time.length > 0) {
+              const currentSun = sunriseData.location.time[0];
+              weatherPayload.current.sunrise = currentSun.sunrise;
+              weatherPayload.current.sunset = currentSun.sunset;
+            }
+          }
+          // Now, fetch sunrise/sunset for the next 7 days.
+          const startStr = today;
+          const endDate = new Date();
+          endDate.setDate(endDate.getDate() + 6);
+          const endStr = endDate.toISOString().split("T")[0];
+          const sunriseUrlDaily = new URL("https://api.met.no/weatherapi/sunrise/2.0/");
+          sunriseUrlDaily.searchParams.set("lat", latRaw);
+          sunriseUrlDaily.searchParams.set("lon", lonRaw);
+          sunriseUrlDaily.searchParams.set("date", startStr + "/" + endStr);
+          sunriseUrlDaily.searchParams.set("formatted", "true");
+          const sunriseDailyRes = await fetch(sunriseUrlDaily.toString(), {
+            headers: { "User-Agent": "yorgisbot" }
+          });
+          if(sunriseDailyRes.ok) {
+            const sunriseDailyData = await sunriseDailyRes.json();
+            if(sunriseDailyData.location && sunriseDailyData.location.time) {
+              const sunTimes = sunriseDailyData.location.time;
+              // Update each day in the daily forecast based on order.
+              weatherPayload.daily = weatherPayload.daily.map((day, index) => {
+                if(index < sunTimes.length) {
+                  return { ...day, sunrise: sunTimes[index].sunrise, sunset: sunTimes[index].sunset };
+                }
+                return day;
+              });
+            }
+          }
         } else {
+          // Open-Meteo branch
           const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
           apiUrl.searchParams.set("latitude", latRaw);
           apiUrl.searchParams.set("longitude", lonRaw);
@@ -574,7 +664,7 @@ export default {
         });
       }
     }
-    return new Response(HTML(colo), {
+    return new Response(HTML(colo, fallbackLat, fallbackLon), {
       headers: { ...commonHeaders, "Content-Type": "text/html" }
     });
   }
