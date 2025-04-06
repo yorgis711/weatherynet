@@ -349,11 +349,12 @@ loadWeather();
 </script>
 </body>
 </html>`;
+
 export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
     const url = new URL(request.url);
-    // Get data center info and fallback coordinates from Cloudflare if available.
+    // Get CF data and fallback coordinates from the request
     const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
     const fallbackLat = (request.cf && request.cf.latitude) ? request.cf.latitude : 0;
     const fallbackLon = (request.cf && request.cf.longitude) ? request.cf.longitude : 0;
@@ -362,6 +363,7 @@ export default {
       "Pragma": "no-cache",
       "Expires": "0"
     };
+
     function convertTemp(temp, units) {
       return units === "imperial" ? (temp * 9/5 + 32).toFixed(1) + "°F" : temp.toFixed(1) + "°C";
     }
@@ -374,6 +376,8 @@ export default {
     function convertPrecip(precip, units) {
       return units === "imperial" ? (precip / 25.4).toFixed(2) + " in" : precip.toFixed(1) + " mm";
     }
+
+    // Reverse geocoding endpoint remains unchanged.
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
@@ -430,17 +434,24 @@ export default {
         headers: { ...commonHeaders, "Content-Type": "application/json" }
       });
     }
+
+    // Main weather API endpoint.
     if (url.pathname === "/api/weather") {
+      // Use the colo value from this /api/weather request.
+      const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
       const useBucketing = false;
       const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
       const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      // Provider is optional; default to "metno"
       const provider = url.searchParams.get("provider") || "metno";
       const units = url.searchParams.get("units") || "metric";
       const bucketPrecision = 0.0045;
       const lat = useBucketing ? Math.round(latRaw / bucketPrecision) * bucketPrecision : latRaw;
       const lon = useBucketing ? Math.round(lonRaw / bucketPrecision) * bucketPrecision : lonRaw;
+      
       const cacheKey = "weather-" + lat.toFixed(6) + "-" + lon.toFixed(6) + "-" + tz + "-" + provider + "-" + units;
+      
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
@@ -518,7 +529,6 @@ export default {
             daily
           };
           // Use MET Norway's sunrise API for sunrise/sunset data.
-          // First, update current conditions.
           const today = new Date().toISOString().split("T")[0];
           const sunriseUrl = new URL("https://api.met.no/weatherapi/sunrise/2.0/");
           sunriseUrl.searchParams.set("lat", latRaw);
@@ -536,7 +546,6 @@ export default {
               weatherPayload.current.sunset = currentSun.sunset;
             }
           }
-          // Now, fetch sunrise/sunset for the next 7 days.
           const startStr = today;
           const endDate = new Date();
           endDate.setDate(endDate.getDate() + 6);
@@ -553,7 +562,6 @@ export default {
             const sunriseDailyData = await sunriseDailyRes.json();
             if(sunriseDailyData.location && sunriseDailyData.location.time) {
               const sunTimes = sunriseDailyData.location.time;
-              // Update each day in the daily forecast based on order.
               weatherPayload.daily = weatherPayload.daily.map((day, index) => {
                 if(index < sunTimes.length) {
                   return { ...day, sunrise: sunTimes[index].sunrise, sunset: sunTimes[index].sunset };
@@ -664,6 +672,80 @@ export default {
         });
       }
     }
+
+    // New AI Summary API endpoint.
+    if (url.pathname === "/api/ai-summary") {
+      // Get parameters (use defaults as needed)
+      const lat = url.searchParams.get("lat");
+      const lon = url.searchParams.get("lon");
+      const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const provider = url.searchParams.get("provider") || "metno";
+      const units = url.searchParams.get("units") || "metric";
+
+      if (!lat || !lon) {
+        const meta = { processedMs: Date.now() - startTime, colo: colo };
+        return new Response(JSON.stringify({ error: "lat and lon required", meta }), {
+          status: 400,
+          headers: { ...commonHeaders, "Content-Type": "application/json" }
+        });
+      }
+      // Build the weather API URL using the same logic as above.
+      const weatherApiUrl = new URL(request.url);
+      weatherApiUrl.pathname = "/api/weather";
+      weatherApiUrl.searchParams.set("lat", lat);
+      weatherApiUrl.searchParams.set("lon", lon);
+      weatherApiUrl.searchParams.set("tz", tz);
+      weatherApiUrl.searchParams.set("provider", provider);
+      weatherApiUrl.searchParams.set("units", units);
+      // Optionally bypass cache for a fresh summary
+      // weatherApiUrl.searchParams.set("noCache", "true");
+
+      try {
+        const weatherRes = await fetch(weatherApiUrl.toString(), { cf: request.cf });
+        if (!weatherRes.ok) throw new Error("Weather API error: HTTP " + weatherRes.status);
+        const weatherData = await weatherRes.json();
+
+        // Generate a summary based on the current weather data.
+        let summary;
+        if (!weatherData || !weatherData.current) {
+          summary = "No weather data available.";
+        } else {
+          const tempMatch = weatherData.current.temp.match(/-?\\d+(\\.\\d+)?/);
+          const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
+          const precipitation = weatherData.current.precipitation;
+          summary = "Currently, the weather is ";
+          if (temp !== null) {
+            summary += temp > 25 ? "warm" : (temp < 15 ? "cool" : "mild");
+          } else {
+            summary += "of moderate temperature";
+          }
+          summary += ". ";
+          summary += precipitation !== "N/A" ? "There is a chance of precipitation. " : "Precipitation data is not available. ";
+          summary += "Overall, expect a day that feels " + (temp !== null ? (temp > 25 ? "energetic" : (temp < 15 ? "chilly" : "comfortable")) : "average") + ".";
+        }
+        const meta = {
+          colo: colo,
+          timezone: tz,
+          timestamp: new Date().toISOString(),
+          processedMs: Date.now() - startTime
+        };
+        return new Response(JSON.stringify({ summary, meta }), {
+          headers: { ...commonHeaders, "Content-Type": "application/json" }
+        });
+      } catch (error) {
+        const meta = {
+          colo: colo,
+          timezone: tz,
+          timestamp: new Date().toISOString(),
+          processedMs: Date.now() - startTime
+        };
+        return new Response(JSON.stringify({ error: error.message, meta }), {
+          status: 500,
+          headers: { ...commonHeaders, "Content-Type": "application/json" }
+        });
+      }
+    }
+    // Default: Serve the HTML
     return new Response(HTML(colo, fallbackLat, fallbackLon), {
       headers: { ...commonHeaders, "Content-Type": "text/html" }
     });
