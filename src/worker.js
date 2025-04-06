@@ -378,15 +378,26 @@ export default {
       });
     }
     if (url.pathname === "/api/weather") {
-      const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
-      const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
-      const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const provider = url.searchParams.get("provider") || "open-meteo";
-      const units = url.searchParams.get("units") || "metric";
-      const bucketPrecision = 0.0045;
-      const bucketLat = Math.round(latRaw / bucketPrecision) * bucketPrecision;
-      const bucketLon = Math.round(lonRaw / bucketPrecision) * bucketPrecision;
-      const cacheKey = "weather-" + bucketLat.toFixed(4) + "-" + bucketLon.toFixed(4) + "-" + tz + "-" + provider + "-" + units;
+  const useBucketing = false; // Toggle this to true if you want bucketing
+
+  const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
+  const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
+  const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const provider = url.searchParams.get("provider") || "open-meteo";
+  const units = url.searchParams.get("units") || "metric";
+
+  const bucketPrecision = 0.0045;
+  const lat = useBucketing
+    ? Math.round(latRaw / bucketPrecision) * bucketPrecision
+    : latRaw;
+  const lon = useBucketing
+    ? Math.round(lonRaw / bucketPrecision) * bucketPrecision
+    : lonRaw;
+
+  const cacheKey =
+    "weather-" + lat.toFixed(6) + "-" + lon.toFixed(6) + "-" + tz + "-" + provider + "-" + units;
+
+  
       if (!url.searchParams.has("noCache")) {
         const cached = await env.WEATHER_CACHE.get(cacheKey);
         if (cached) {
