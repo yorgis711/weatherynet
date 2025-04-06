@@ -383,7 +383,7 @@ export default {
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
       const provider = url.searchParams.get("provider") || "open-meteo";
       const units = url.searchParams.get("units") || "metric";
-      const bucketPrecision = 0.0045;
+      const bucketPrecision = 0.000000000045;
       const bucketLat = Math.round(latRaw / bucketPrecision) * bucketPrecision;
       const bucketLon = Math.round(lonRaw / bucketPrecision) * bucketPrecision;
       const cacheKey = "weather-" + bucketLat.toFixed(4) + "-" + bucketLon.toFixed(4) + "-" + tz + "-" + provider + "-" + units;
