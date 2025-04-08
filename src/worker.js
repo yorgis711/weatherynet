@@ -698,7 +698,7 @@ export default {
       weatherApiUrl.searchParams.set("provider", provider);
       weatherApiUrl.searchParams.set("units", units);
       // Optionally bypass cache for a fresh summary
-      // weatherApiUrl.searchParams.set("noCache", "true");
+      weatherApiUrl.searchParams.set("noCache", "true");
 
       try {
         const weatherRes = await fetch(weatherApiUrl.toString(), { cf: request.cf });
