@@ -65,6 +65,8 @@ const HTML = (colo, fallbackLat, fallbackLon) => `<!DOCTYPE html>
 <body>
 <!-- Inject fallback coordinates from the request -->
 <script>
+  // Toggle this variable to true to hide the AI summary widget.
+  const HIDE_AI_SUMMARY = true;
   const fallbackCoords = { latitude: ${fallbackLat}, longitude: ${fallbackLon} };
 </script>
 <div class="container">
@@ -146,7 +148,7 @@ const HTML = (colo, fallbackLat, fallbackLon) => `<!DOCTYPE html>
       <h3>📆 Daily Forecast (Next 3 Days)</h3>
       <div class="forecast-preview" id="daily-preview" onclick="openModal('daily')"></div>
     </div>
-    <div class="widget ai-summary">
+    <div class="widget ai-summary" id="ai-summary-widget">
       <h3>🤖 AI Weather Summary</h3>
       <div id="ai-summary-content">Loading summary...</div>
     </div>
@@ -172,10 +174,10 @@ const HTML = (colo, fallbackLat, fallbackLon) => `<!DOCTYPE html>
 </div>
 <script>
 if(localStorage.getItem("weather-provider")) {
-  document.getElementById("weather-provider").value = localStorage.getItem("weather-provider")
+  document.getElementById("weather-provider").value = localStorage.getItem("weather-provider");
 }
 if(localStorage.getItem("units")) {
-  document.getElementById("units").value = localStorage.getItem("units")
+  document.getElementById("units").value = localStorage.getItem("units");
 }
 let weatherData = null;
 async function loadWeather(noCache) {
@@ -189,7 +191,7 @@ async function loadWeather(noCache) {
     } catch (e) {
       coords = null;
     }
-    // If no coordinates were found, use the fallback provided by the server.
+    // Use fallback if no valid coordinates are found.
     if (!coords || (coords.latitude === 0 && coords.longitude === 0)) {
       coords = fallbackCoords;
     }
@@ -209,8 +211,14 @@ async function loadWeather(noCache) {
     document.getElementById("current-time-meta").textContent = "🕒 Time: " + new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
     document.getElementById("current-timezone-meta").textContent = "🌐 Timezone: " + tz;
     updateUI();
-    // Now update the AI summary via streaming
-    updateSummary();
+    // Update the AI summary only if not hidden.
+    if (!HIDE_AI_SUMMARY) {
+      updateSummary();
+    } else {
+      // Optionally clear or hide the AI summary section.
+      const summaryWidget = document.getElementById("ai-summary-widget");
+      summaryWidget.style.display = "none";
+    }
     const c2lUrl = "/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude + (noCache ? "&noCache=true" : "");
     const res = await fetch(c2lUrl);
     const data = await res.json();
@@ -269,19 +277,14 @@ function updateUI() {
   }).join("");
 }
 async function updateSummary() {
-  // Clear the existing content
   const summaryEl = document.getElementById("ai-summary-content");
   summaryEl.textContent = "";
   try {
-    // Build the URL to the ai-summary endpoint using current parameters.
-    // Using fallback values from the weatherData object:
     const provider = document.getElementById("weather-provider").value || "metno";
     const units = document.getElementById("units").value || "metric";
-    // Use the lat and lon from weatherData.meta if available; otherwise empty.
     const lat = weatherData.meta ? weatherData.meta.coordinates.lat : "";
     const lon = weatherData.meta ? weatherData.meta.coordinates.lon : "";
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    // Use concatenation to build the URL
     const summaryUrl = "/api/ai-summary?lat=" + lat + "&lon=" + lon + "&tz=" + tz + "&provider=" + provider + "&units=" + units;
     const response = await fetch(summaryUrl);
     if (!response.body) {
@@ -366,7 +369,6 @@ export default {
   async fetch(request, env, context) {
     const startTime = Date.now();
     const url = new URL(request.url);
-    // Get CF data and fallback coordinates from the request
     const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
     const fallbackLat = (request.cf && request.cf.latitude) ? request.cf.latitude : 0;
     const fallbackLon = (request.cf && request.cf.longitude) ? request.cf.longitude : 0;
@@ -389,7 +391,6 @@ export default {
       return units === "imperial" ? (precip / 25.4).toFixed(2) + " in" : precip.toFixed(1) + " mm";
     }
 
-    // Reverse geocoding endpoint remains unchanged.
     if (url.pathname === "/api/c2l") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
@@ -447,7 +448,6 @@ export default {
       });
     }
 
-    // Main weather API endpoint.
     if (url.pathname === "/api/weather") {
       const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
       const useBucketing = false;
@@ -680,7 +680,6 @@ export default {
       }
     }
 
-    // New AI Summary API endpoint (streaming and no caching).
     if (url.pathname === "/api/ai-summary") {
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
@@ -695,7 +694,6 @@ export default {
           headers: { ...commonHeaders, "Content-Type": "application/json" }
         });
       }
-      // Build the weather API URL using the same logic as above.
       const weatherApiUrl = new URL(request.url);
       weatherApiUrl.pathname = "/api/weather";
       weatherApiUrl.searchParams.set("lat", lat);
@@ -703,7 +701,6 @@ export default {
       weatherApiUrl.searchParams.set("tz", tz);
       weatherApiUrl.searchParams.set("provider", provider);
       weatherApiUrl.searchParams.set("units", units);
-      // Ensure fresh weather data
       weatherApiUrl.searchParams.set("noCache", "true");
 
       try {
@@ -711,7 +708,6 @@ export default {
         if (!weatherRes.ok) throw new Error("Weather API error: HTTP " + weatherRes.status);
         const weatherData = await weatherRes.json();
 
-        // Create a streaming response using a ReadableStream.
         const stream = new ReadableStream({
           async start(controller) {
             if (!weatherData || !weatherData.current) {
@@ -763,7 +759,6 @@ export default {
         });
       }
     }
-    // Default: Serve the HTML
     return new Response(HTML(colo, fallbackLat, fallbackLon), {
       headers: { ...commonHeaders, "Content-Type": "text/html" }
     });
