@@ -274,14 +274,15 @@ async function updateSummary() {
   summaryEl.textContent = "";
   try {
     // Build the URL to the ai-summary endpoint using current parameters.
-    // Using fallback values from local storage / current weather:
+    // Using fallback values from the weatherData object:
     const provider = document.getElementById("weather-provider").value || "metno";
     const units = document.getElementById("units").value || "metric";
-    // Make use of the last known lat,lon from weatherData.meta if available:
+    // Use the lat and lon from weatherData.meta if available; otherwise empty.
     const lat = weatherData.meta ? weatherData.meta.coordinates.lat : "";
     const lon = weatherData.meta ? weatherData.meta.coordinates.lon : "";
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const summaryUrl = `/api/ai-summary?lat=${lat}&lon=${lon}&tz=${tz}&provider=${provider}&units=${units}`;
+    // Use concatenation to build the URL
+    const summaryUrl = "/api/ai-summary?lat=" + lat + "&lon=" + lon + "&tz=" + tz + "&provider=" + provider + "&units=" + units;
     const response = await fetch(summaryUrl);
     if (!response.body) {
       summaryEl.textContent = "Error: Streaming not supported.";
