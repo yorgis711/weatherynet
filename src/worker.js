@@ -273,7 +273,7 @@ function updateSummary() {
     document.getElementById("ai-summary-content").textContent = "No weather data available.";
     return;
   }
-  const tempMatch = weatherData.current.temp.match(/-?\\d+(\\.\\d+)?/);
+  const tempMatch = weatherData.current.temp.match(/-?\d+(\.\d+)?/);
   const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
   const precipitation = weatherData.current.precipitation;
   let summary = "Currently, the weather is ";
@@ -437,13 +437,11 @@ export default {
 
     // Main weather API endpoint.
     if (url.pathname === "/api/weather") {
-      // Use the colo value from this /api/weather request.
       const colo = (request.cf && request.cf.colo) ? request.cf.colo : "unknown";
       const useBucketing = false;
       const latRaw = parseFloat(url.searchParams.get("lat")) || 0;
       const lonRaw = parseFloat(url.searchParams.get("lon")) || 0;
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
-      // Provider is optional; default to "metno"
       const provider = url.searchParams.get("provider") || "metno";
       const units = url.searchParams.get("units") || "metric";
       const bucketPrecision = 0.0045;
@@ -472,7 +470,6 @@ export default {
       try {
         let weatherPayload;
         if (provider === "metno") {
-          // Fetch MET Norway compact forecast.
           const metnoUrl = new URL("https://api.met.no/weatherapi/locationforecast/2.0/compact");
           metnoUrl.searchParams.set("lat", latRaw);
           metnoUrl.searchParams.set("lon", lonRaw);
@@ -528,7 +525,6 @@ export default {
             hourly,
             daily
           };
-          // Use MET Norway's sunrise API for sunrise/sunset data.
           const today = new Date().toISOString().split("T")[0];
           const sunriseUrl = new URL("https://api.met.no/weatherapi/sunrise/2.0/");
           sunriseUrl.searchParams.set("lat", latRaw);
@@ -571,7 +567,6 @@ export default {
             }
           }
         } else {
-          // Open-Meteo branch
           const apiUrl = new URL("https://api.open-meteo.com/v1/forecast");
           apiUrl.searchParams.set("latitude", latRaw);
           apiUrl.searchParams.set("longitude", lonRaw);
@@ -673,9 +668,8 @@ export default {
       }
     }
 
-    // New AI Summary API endpoint.
+    // New AI Summary API endpoint (streaming and no caching).
     if (url.pathname === "/api/ai-summary") {
-      // Get parameters (use defaults as needed)
       const lat = url.searchParams.get("lat");
       const lon = url.searchParams.get("lon");
       const tz = url.searchParams.get("tz") || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -697,7 +691,7 @@ export default {
       weatherApiUrl.searchParams.set("tz", tz);
       weatherApiUrl.searchParams.set("provider", provider);
       weatherApiUrl.searchParams.set("units", units);
-      // Optionally bypass cache for a fresh summary
+      // Ensure fresh weather data
       weatherApiUrl.searchParams.set("noCache", "true");
 
       try {
@@ -705,32 +699,44 @@ export default {
         if (!weatherRes.ok) throw new Error("Weather API error: HTTP " + weatherRes.status);
         const weatherData = await weatherRes.json();
 
-        // Generate a summary based on the current weather data.
-        let summary;
-        if (!weatherData || !weatherData.current) {
-          summary = "No weather data available.";
-        } else {
-          const tempMatch = weatherData.current.temp.match(/-?\\d+(\\.\\d+)?/);
-          const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
-          const precipitation = weatherData.current.precipitation;
-          summary = "Currently, the weather is ";
-          if (temp !== null) {
-            summary += temp > 25 ? "warm" : (temp < 15 ? "cool" : "mild");
-          } else {
-            summary += "of moderate temperature";
+        // Create a streaming response using a ReadableStream.
+        const stream = new ReadableStream({
+          async start(controller) {
+            if (!weatherData || !weatherData.current) {
+              controller.enqueue("No weather data available.");
+              controller.close();
+              return;
+            }
+            const tempMatch = weatherData.current.temp.match(/-?\d+(\.\d+)?/);
+            const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
+            const precipitation = weatherData.current.precipitation;
+
+            let summary = "Currently, the weather is ";
+            if (temp !== null) {
+              summary += temp > 25 ? "warm" : (temp < 15 ? "cool" : "mild");
+            } else {
+              summary += "of moderate temperature";
+            }
+            controller.enqueue(summary);
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            summary = ". ";
+            summary += precipitation !== "N/A" ? "There is a chance of precipitation. " : "Precipitation data is not available. ";
+            controller.enqueue(summary);
+
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            summary = "Overall, expect a day that feels ";
+            summary += (temp !== null ? (temp > 25 ? "energetic" : (temp < 15 ? "chilly" : "comfortable")) : "average") + ".";
+            controller.enqueue(summary);
+
+            controller.close();
           }
-          summary += ". ";
-          summary += precipitation !== "N/A" ? "There is a chance of precipitation. " : "Precipitation data is not available. ";
-          summary += "Overall, expect a day that feels " + (temp !== null ? (temp > 25 ? "energetic" : (temp < 15 ? "chilly" : "comfortable")) : "average") + ".";
-        }
-        const meta = {
-          colo: colo,
-          timezone: tz,
-          timestamp: new Date().toISOString(),
-          processedMs: Date.now() - startTime
-        };
-        return new Response(JSON.stringify({ summary, meta }), {
-          headers: { ...commonHeaders, "Content-Type": "application/json" }
+        });
+
+        return new Response(stream, {
+          headers: { ...commonHeaders, "Content-Type": "text/plain" }
         });
       } catch (error) {
         const meta = {
