@@ -209,6 +209,8 @@ async function loadWeather(noCache) {
     document.getElementById("current-time-meta").textContent = "🕒 Time: " + new Date().toLocaleTimeString("en-US", { timeZone: tz, hour12: false });
     document.getElementById("current-timezone-meta").textContent = "🌐 Timezone: " + tz;
     updateUI();
+    // Now update the AI summary via streaming
+    updateSummary();
     const c2lUrl = "/api/c2l?lat=" + coords.latitude + "&lon=" + coords.longitude + (noCache ? "&noCache=true" : "");
     const res = await fetch(c2lUrl);
     const data = await res.json();
@@ -265,27 +267,36 @@ function updateUI() {
            '<div>🌧️ ' + day.precipitationChance + '</div>' +
            '</div>';
   }).join("");
-  updateSummary();
 }
-// A simple function to generate an AI-like summary based on the current weather
-function updateSummary() {
-  if (!weatherData || !weatherData.current) {
-    document.getElementById("ai-summary-content").textContent = "No weather data available.";
-    return;
+async function updateSummary() {
+  // Clear the existing content
+  const summaryEl = document.getElementById("ai-summary-content");
+  summaryEl.textContent = "";
+  try {
+    // Build the URL to the ai-summary endpoint using current parameters.
+    // Using fallback values from local storage / current weather:
+    const provider = document.getElementById("weather-provider").value || "metno";
+    const units = document.getElementById("units").value || "metric";
+    // Make use of the last known lat,lon from weatherData.meta if available:
+    const lat = weatherData.meta ? weatherData.meta.coordinates.lat : "";
+    const lon = weatherData.meta ? weatherData.meta.coordinates.lon : "";
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const summaryUrl = `/api/ai-summary?lat=${lat}&lon=${lon}&tz=${tz}&provider=${provider}&units=${units}`;
+    const response = await fetch(summaryUrl);
+    if (!response.body) {
+      summaryEl.textContent = "Error: Streaming not supported.";
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      summaryEl.textContent += decoder.decode(value);
+    }
+  } catch (e) {
+    summaryEl.textContent = "Error updating summary: " + e.message;
   }
-  const tempMatch = weatherData.current.temp.match(/-?\d+(\.\d+)?/);
-  const temp = tempMatch ? parseFloat(tempMatch[0]) : null;
-  const precipitation = weatherData.current.precipitation;
-  let summary = "Currently, the weather is ";
-  if (temp !== null) {
-    summary += temp > 25 ? "warm" : (temp < 15 ? "cool" : "mild");
-  } else {
-    summary += "of moderate temperature";
-  }
-  summary += ". ";
-  summary += precipitation !== "N/A" ? "There is a chance of precipitation. " : "Precipitation data is not available. ";
-  summary += "Overall, expect a day that feels " + (temp !== null ? (temp > 25 ? "energetic" : (temp < 15 ? "chilly" : "comfortable")) : "average") + ".";
-  document.getElementById("ai-summary-content").textContent = summary;
 }
 function getLocation() {
   return new Promise(function(resolve, reject) {
